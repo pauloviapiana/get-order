@@ -26,3 +26,70 @@ p {
   margin: 0;
   color: #444;
 }
+
+button {
+  font: inherit;
+  padding: 0.5rem 1rem;
+  border: 1px solid #7a4a24;
+  border-radius: 4px;
+  background: #7a4a24;
+  color: #fff;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.abas {
+  display: flex;
+  gap: 0.5rem;
+  margin: 1rem 0;
+}
+
+.abas button {
+  background: transparent;
+  color: #7a4a24;
+}
+
+.abas button.ativa {
+  background: #7a4a24;
+  color: #fff;
+}
+
+.formulario,
+.cartao {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1.25rem;
+  background: #fff;
+  border: 1px solid #e3d9cc;
+  border-radius: 6px;
+}
+
+.cartao {
+  margin-top: 1rem;
+  align-items: flex-start;
+}
+
+.formulario input {
+  font: inherit;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid #c9bba8;
+  border-radius: 4px;
+}
+
+.formulario button {
+  margin-top: 0.5rem;
+}
+
+.mensagem-erro {
+  color: #a11d1d;
+}
+
+.nota {
+  margin-top: 1rem;
+  font-size: 0.9rem;
+}

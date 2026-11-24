@@ -26,3 +26,79 @@ p {
   margin: 0;
   color: #444;
 }
+
+button {
+  font: inherit;
+  padding: 0.5rem 1rem;
+  border: 1px solid #1f4e66;
+  border-radius: 4px;
+  background: #1f4e66;
+  color: #fff;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.app-larga {
+  max-width: 64rem;
+}
+
+.topo {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+}
+
+.formulario {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding: 1.25rem;
+  background: #fff;
+  border: 1px solid #d3dde2;
+  border-radius: 6px;
+}
+
+.formulario input {
+  font: inherit;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid #b5c4cc;
+  border-radius: 4px;
+}
+
+.formulario button {
+  margin-top: 0.5rem;
+}
+
+.mensagem-erro {
+  color: #a11d1d;
+}
+
+.nota {
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.tabela {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+}
+
+.tabela th,
+.tabela td {
+  padding: 0.45rem 0.6rem;
+  border: 1px solid #d3dde2;
+  text-align: left;
+}
+
+.tabela th {
+  background: #dfe8ec;
+}

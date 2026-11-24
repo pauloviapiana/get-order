@@ -1,4 +1,4 @@
-# Checklist — Fase 0 (Planejamento) + Fase 1 (Scaffold)
+# Checklist — Fase 0 (Planejamento) + Fase 1 (Scaffold) + Fase 2 (Auth)
 
 Marcado = fechado nesta fase.
 
@@ -37,18 +37,35 @@ Marcado = fechado nesta fase.
 - [x] Preparar Zod (deps + pasta `schemas/`) sem regras de domínio completas
 - [x] Health check `/api/health`
 - [x] Documentar no README **como subir**
-- [ ] Migrations reais na ordem de `MODELO_DADOS.md` → **Fase 2** (após scaffold)
+- [x] Migrations reais na ordem de `MODELO_DADOS.md` → iniciadas na Fase 2 (`usuarios`)
 
 ---
 
-## Fase 2 — próximo (domínio)
+## Fase 2 — auth e usuários (concluído)
 
-- [ ] Migrations + models na ordem de `MODELO_DADOS.md` (`usuarios`, `mesas`, `reservas`, menu, pedidos, compras…)
-- [ ] Auth: login, JWT emitido, bcrypt, middlewares `autenticar` / `autorizar`
-- [ ] Schemas Zod de domínio
-- [ ] Controllers/services de negócio (reservas, pedidos, financeiro…)
-- [ ] Seed de dados de domínio
-- [ ] Telas nos frontends (cliente e gestão) conforme `FASE0_REGRAS` §8
+Detalhe: [`FASE2_AUTH.md`](FASE2_AUTH.md).
+
+- [x] Migration + model `usuarios` (01 da ordem de `MODELO_DADOS.md`)
+- [x] Auth: register (força `cliente`), login, `GET /auth/me`, JWT 30m, bcrypt
+- [x] Middlewares `autenticar` / `autorizarPerfil` + tratador central de erros `{ erro, detalhes? }`
+- [x] Schemas Zod de auth e usuários (register, login, criar, atualizar admin/próprio, ativo)
+- [x] `authService` / `usuarioService` + controllers finos + rotas `/api/auth` e `/api/usuarios`
+- [x] CRUD de usuários (admin) e próprio cadastro (cliente); `DELETE` = desativar
+- [x] Seed reexecutável: 1 admin, 2 funcionários, 3 clientes (`npm run seed`)
+- [x] Frontend cliente: cadastro, login, logout
+- [x] Frontend gestão: login admin/funcionário (nega cliente) + listagem de usuários (admin)
+- [x] Coleção Postman `backend/postman/Get-Order-Auth.postman_collection.json`
+
+---
+
+## Próximas fases (fora da Fase 2)
+
+- [ ] **Fase 3:** migrations/models `mesas` e `reservas`; regras sex/sáb/dom, slots 18:00–22:30, disponibilidade em transação, status e transições
+- [ ] Cardápio: `categorias_menu` e `itens_menu`
+- [ ] Pedidos: `pedidos` e `pedido_itens`, fluxo de status, garçom e 10%
+- [ ] Financeiro: `compras` e relatórios
+- [ ] Seed de domínio (mesas, cardápio, reservas, pedidos, compras)
+- [ ] Telas de reserva, cardápio, pedidos e financeiro nos frontends
 
 ---
 

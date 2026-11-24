@@ -4,6 +4,7 @@ import cors from 'cors';
 import sequelize from './config/database.js';
 import './models/index.js';
 import routes from './routes/index.js';
+import { rotaNaoEncontrada, tratarErros } from './middlewares/erros.js';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3001;
@@ -20,6 +21,8 @@ app.use(
 );
 app.use(express.json());
 app.use('/api', routes);
+app.use(rotaNaoEncontrada);
+app.use(tratarErros);
 
 async function start() {
   try {

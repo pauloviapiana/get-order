@@ -1,5 +1,6 @@
 import sequelize from '../config/database.js';
+import Usuario from './Usuario.js';
 
-// Models de domínio entram na Fase 2 (usuarios, mesas, reservas, etc.).
+// Demais models (mesas, reservas, menu, pedidos, compras) entram nas fases seguintes.
 
-export { sequelize };
+export { sequelize, Usuario };

@@ -12,10 +12,11 @@ Planejamento e modelo de dados estão em [`docs/`](docs/):
 - [DER.md](docs/DER.md) — diagrama entidade-relacionamento  
 - [MODELO_DADOS.md](docs/MODELO_DADOS.md) — tabelas, campos e ordem de migrations  
 - [MATRIZ_RBAC.md](docs/MATRIZ_RBAC.md) — permissões por perfil  
-- [FASE0_CHECKLIST.md](docs/FASE0_CHECKLIST.md) — checklist Fase 0 / Fase 1  
+- [FASE0_CHECKLIST.md](docs/FASE0_CHECKLIST.md) — checklist por fase  
+- [FASE2_AUTH.md](docs/FASE2_AUTH.md) — endpoints de auth/usuários, erros e usuários seed  
 
-**Fase 0 concluída. Fase 1 (scaffold) concluída.**  
-Migrations de domínio = **Fase 2**. Auth/RBAC = **Fase 2**.
+**Fase 0 concluída. Fase 1 (scaffold) concluída. Fase 2 (auth) concluída.**  
+Mesas e reservas = **Fase 3**; cardápio, pedidos e financeiro nas fases seguintes.
 
 ---
 
@@ -28,7 +29,7 @@ Comandos abaixo são para **PowerShell** no Windows.
 
 ---
 
-## Como subir o scaffold
+## Como subir
 
 ### 1) Criar o banco
 
@@ -48,11 +49,28 @@ Edite `backend/.env` e preencha `DB_PASSWORD` e `JWT_SECRET`.
 
 ```powershell
 npm install
+npx sequelize-cli db:migrate
+npm run seed
 npm run dev
 ```
 
+- `db:migrate` cria a tabela `usuarios` (única migration até aqui).
+- `npm run seed` cria os usuários demo; pode ser executado de novo sem duplicar.
+
 API em `http://localhost:3001` (rotas sob `/api`).  
 Teste: `GET http://localhost:3001/api/health` → `{ "ok": true }`.
+
+### Logins demo
+
+Senha de todos: **`123456`**
+
+| Perfil | E-mail |
+|--------|--------|
+| admin | `admin@getorder.com` |
+| funcionario | `funcionario1@getorder.com`, `funcionario2@getorder.com` |
+| cliente | `cliente1@getorder.com`, `cliente2@getorder.com`, `cliente3@getorder.com` |
+
+Coleção Postman: `backend/postman/Get-Order-Auth.postman_collection.json` (detalhes em [FASE2_AUTH.md](docs/FASE2_AUTH.md)).
 
 ### 3) Frontend cliente (porta 5173)
 
@@ -76,7 +94,8 @@ npm install
 npm run dev
 ```
 
-Cada app mostra o título e o resultado do ping em `/api/health`.
+- **Cliente (5173):** criar conta, entrar e sair.
+- **Gestão (5174):** login de admin/funcionário (cliente é recusado); admin vê a lista de usuários.
 
 ---
 
