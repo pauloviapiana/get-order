@@ -27,7 +27,10 @@ function MinhasReservas({ versao }) {
   useEffect(carregar, [versao]);
 
   async function cancelar(reserva) {
-    if (!window.confirm(`Cancelar a reserva de ${formatarData(reserva.data_reserva)} às ${reserva.horario}?`)) return;
+    const pergunta =
+      `Cancelar a reserva de ${formatarData(reserva.data_reserva)} às ${reserva.horario}?\n` +
+      'Pedidos vinculados a ela não são cancelados automaticamente.';
+    if (!window.confirm(pergunta)) return;
 
     try {
       await api.patch(`/reservas/${reserva.id}/status`, { status: 'cancelada' });

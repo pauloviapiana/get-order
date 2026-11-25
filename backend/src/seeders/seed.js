@@ -1,5 +1,6 @@
 /**
- * Seed de demonstração — Fase 2 (usuários) + Fase 3 (mesas e reservas) + Fase 4 (cardápio).
+ * Seed de demonstração — Fase 2 (usuários) + Fase 3 (mesas e reservas) + Fase 4 (cardápio)
+ * + Fase 5 (pedidos).
  *
  * Uso (dentro de backend/, depois de `npx sequelize-cli db:migrate`):
  *   npm run seed
@@ -11,11 +12,23 @@
  *   então datas calculadas na 1ª execução são mantidas nas seguintes.
  * - categorias do cardápio: chave nome
  * - itens do cardápio: chave categoria + nome
+ * - pedidos: chave cliente + reserva seed vinculada (ou cliente sem reserva, para Carla);
+ *   itens com preço snapshot do cardápio na 1ª execução
  */
 import bcrypt from 'bcrypt';
 import { Op } from 'sequelize';
-import { CategoriaMenu, ItemMenu, Mesa, Reserva, sequelize, Usuario } from '../models/index.js';
+import {
+  CategoriaMenu,
+  ItemMenu,
+  Mesa,
+  Pedido,
+  PedidoItem,
+  Reserva,
+  sequelize,
+  Usuario,
+} from '../models/index.js';
 import { agoraNoRestaurante, STATUS_QUE_BLOQUEIAM } from '../services/regrasReserva.js';
+import { comissaoCentavos, deCentavos, paraCentavos } from '../utils/dinheiro.js';
 
 const SALT_ROUNDS = 10;
 const SENHA_DEMO = '123456';
@@ -85,6 +98,38 @@ const itensDemo = [
   { categoria: 'Bebidas', nome: 'Água mineral', descricao: '500 ml', preco: '6.00', disponivel: true },
   { categoria: 'Sobremesas', nome: 'Petit gâteau', descricao: 'Com sorvete de creme', preco: '29.90', disponivel: true },
   { categoria: 'Especiais de inverno', nome: 'Fondue de queijo', descricao: 'Serve 2 pessoas', preco: '98.00', disponivel: true },
+];
+
+// `reserva` = observacoes da reserva seed vinculada (compra antecipada); null = sem reserva
+const pedidosDemo = [
+  {
+    cliente: 'cliente1@getorder.com',
+    reserva: '[seed] Jantar em família',
+    status: 'aberto',
+    garcom: null,
+    itens: [['Risoto de cogumelos', 2], ['Suco natural de laranja', 2]],
+  },
+  {
+    cliente: 'cliente2@getorder.com',
+    reserva: '[seed] Aniversário',
+    status: 'entregue',
+    garcom: 'funcionario1@getorder.com',
+    itens: [['Bruschetta de tomate', 1], ['Filé à parmegiana', 3], ['Água mineral', 6]],
+  },
+  {
+    cliente: 'cliente3@getorder.com',
+    reserva: null,
+    status: 'em_preparo',
+    garcom: null,
+    itens: [['Bruschetta de tomate', 2]],
+  },
+  {
+    cliente: 'cliente1@getorder.com',
+    reserva: '[seed] Histórico (sábado passado)',
+    status: 'pago',
+    garcom: 'funcionario2@getorder.com',
+    itens: [['Bolinho de bacalhau', 1], ['Petit gâteau', 2]],
+  },
 ];
 
 async function semearUsuarios(t) {
@@ -183,6 +228,75 @@ async function semearCardapio(t) {
   }
 }
 
+async function semearPedidos(t) {
+  console.log('Semeando pedidos...');
+
+  for (const dados of pedidosDemo) {
+    const cliente = await Usuario.findOne({ where: { email: dados.cliente }, transaction: t });
+    let reserva = null;
+
+    if (dados.reserva) {
+      reserva = await Reserva.findOne({
+        where: { clienteId: cliente.id, observacoes: dados.reserva },
+        transaction: t,
+      });
+
+      if (!reserva) {
+        console.log(`  ignorado (reserva "${dados.reserva}" não existe): pedido de ${cliente.email}`);
+        continue;
+      }
+    }
+
+    const chave = { clienteId: cliente.id, reservaId: reserva?.id ?? null };
+    const existente = await Pedido.findOne({ where: chave, transaction: t });
+    if (existente) {
+      console.log(`  já existia: pedido #${existente.id} de ${cliente.email} (${existente.status})`);
+      continue;
+    }
+
+    // Seed não passa pelo service: preço snapshot e totais calculados aqui, em centavos
+    const linhas = [];
+    for (const [nome, quantidade] of dados.itens) {
+      const item = await ItemMenu.findOne({ where: { nome }, order: [['id', 'ASC']], transaction: t });
+      linhas.push({
+        itemMenuId: item.id,
+        quantidade,
+        preco_unitario: item.preco,
+        subtotal: quantidade * paraCentavos(item.preco),
+      });
+    }
+
+    const total = linhas.reduce((soma, linha) => soma + linha.subtotal, 0);
+    const garcom = dados.garcom
+      ? await Usuario.findOne({ where: { email: dados.garcom }, transaction: t })
+      : null;
+    const pago = dados.status === 'pago';
+
+    const pedido = await Pedido.create(
+      {
+        ...chave,
+        garcomId: garcom?.id ?? null,
+        status: dados.status,
+        valor_total: deCentavos(total),
+        valor_comissao: pago ? deCentavos(comissaoCentavos(total)) : null,
+        // Pedido histórico: pago na noite da reserva concluída
+        pago_em: pago ? new Date(`${reserva.data_reserva}T23:00:00-03:00`) : null,
+      },
+      { transaction: t }
+    );
+
+    await PedidoItem.bulkCreate(
+      linhas.map((linha) => ({ ...linha, pedidoId: pedido.id, subtotal: deCentavos(linha.subtotal) })),
+      { transaction: t }
+    );
+
+    console.log(
+      `  criado: pedido #${pedido.id} de ${cliente.email} (${pedido.status}) R$ ${pedido.valor_total}` +
+        (pago ? `, comissão R$ ${pedido.valor_comissao}` : '')
+    );
+  }
+}
+
 async function seed() {
   try {
     await sequelize.authenticate();
@@ -193,6 +307,7 @@ async function seed() {
       await semearMesas(t);
       await semearReservas(t);
       await semearCardapio(t);
+      await semearPedidos(t);
     });
 
     console.log(`Seed finalizado. Senha demo de todos: ${SENHA_DEMO}`);

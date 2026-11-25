@@ -127,3 +127,15 @@ button:disabled {
   text-align: right;
   white-space: nowrap;
 }
+
+.tabela .quantidade input {
+  font: inherit;
+  width: 4rem;
+  padding: 0.25rem 0.4rem;
+  border: 1px solid #c9bba8;
+  border-radius: 4px;
+}
+
+.resumo-pedido {
+  margin-top: 1rem;
+}

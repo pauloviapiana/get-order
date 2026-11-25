@@ -3,6 +3,7 @@ import authRoutes from './authRoutes.js';
 import categoriasRoutes from './categoriasRoutes.js';
 import itensMenuRoutes from './itensMenuRoutes.js';
 import mesasRoutes from './mesasRoutes.js';
+import pedidosRoutes from './pedidosRoutes.js';
 import reservasRoutes from './reservasRoutes.js';
 import usuariosRoutes from './usuariosRoutes.js';
 
@@ -18,5 +19,6 @@ router.use('/mesas', mesasRoutes);
 router.use('/reservas', reservasRoutes);
 router.use('/categorias', categoriasRoutes);
 router.use('/itens-menu', itensMenuRoutes);
+router.use('/pedidos', pedidosRoutes);
 
 export default router;

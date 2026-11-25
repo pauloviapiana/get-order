@@ -4,6 +4,7 @@ import { lerUsuario, limparSessao, salvarSessao } from './services/sessao';
 import Cardapio from './components/Cardapio';
 import Login from './components/Login';
 import Mesas from './components/Mesas';
+import Pedidos from './components/Pedidos';
 import Reservas from './components/Reservas';
 import Usuarios from './components/Usuarios';
 
@@ -67,11 +68,12 @@ function App() {
       </nav>
 
       {aba === 'reservas' && <Reservas />}
+      {aba === 'pedidos' && <Pedidos ehAdmin={ehAdmin} />}
       {aba === 'mesas' && <Mesas ehAdmin={ehAdmin} />}
       {aba === 'cardapio' && <Cardapio ehAdmin={ehAdmin} />}
       {aba === 'usuarios' && ehAdmin && <Usuarios />}
 
-      <p className="nota">Pedidos e financeiro chegam nas próximas fases.</p>
+      <p className="nota">Compras e relatório financeiro chegam na próxima fase.</p>
     </main>
   );
 }
@@ -79,6 +81,7 @@ function App() {
 function abasDoPerfil(ehAdmin) {
   const abas = [
     { id: 'reservas', rotulo: 'Reservas' },
+    { id: 'pedidos', rotulo: 'Pedidos' },
     { id: 'mesas', rotulo: 'Mesas' },
     { id: 'cardapio', rotulo: 'Cardápio' },
   ];

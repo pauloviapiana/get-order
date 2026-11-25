@@ -1,0 +1,3267 @@
+{
+  "info": {
+    "name": "Get-Order — Pedidos (Fase 5)",
+    "description": "Fase 5: pedidos e compra antecipada. Criação com itens (snapshot de preço), itens só com pedido `aberto`, fluxo de status, atribuição de garçom, pagamento com comissão de 10% e cancelamentos por perfil.\n\n**Base:** {{baseUrl}} = http://localhost:3001/api\n\n**Como usar**\n1. `cd backend` → `npx sequelize-cli db:migrate` → `npm run seed` → `npm run dev`.\n2. Rode a coleção inteira **em ordem** (Runner) ou pela CLI:\n   `postman collection run backend/postman/Get-Order-Pedidos.postman_collection.json`.\n3. A pasta 0 faz login (admin, funcionario1, cliente1, cliente2), cria itens próprios da execução (A R$ 25,50, B R$ 10,05, um indisponível e um de categoria inativa) e localiza reservas do seed (pendente/confirmada do cliente1, do cliente2, cancelada e concluída).\n\nReexecutável: cada execução cria categorias `PM Ped <timestamp>` e as desativa no final. Os pedidos criados ficam como histórico (não há DELETE de pedido).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "0. Setup (logins, itens e reservas de teste)",
+      "item": [
+        {
+          "name": "Login admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('tokenAdmin', pm.response.json().token);",
+                  "pm.collectionVariables.set('adminId', pm.response.json().usuario.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@getorder.com\",\n  \"senha\": \"{{senhaDemo}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login funcionario1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('tokenFuncionario', pm.response.json().token);",
+                  "pm.collectionVariables.set('funcionarioId', pm.response.json().usuario.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"funcionario1@getorder.com\",\n  \"senha\": \"{{senhaDemo}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login cliente1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('tokenCliente', pm.response.json().token);",
+                  "pm.collectionVariables.set('cliente1Id', pm.response.json().usuario.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"cliente1@getorder.com\",\n  \"senha\": \"{{senhaDemo}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login cliente2",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('tokenCliente2', pm.response.json().token);",
+                  "pm.collectionVariables.set('cliente2Id', pm.response.json().usuario.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"cliente2@getorder.com\",\n  \"senha\": \"{{senhaDemo}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Admin cria categoria da execução (201)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('nomeCategoria', `PM Ped ${Date.now()}`);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('categoriaId', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              }
+            ],
+            "url": "{{baseUrl}}/categorias",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"{{nomeCategoria}}\"\n}"
+            },
+            "description": "Itens próprios da execução (preços conhecidos): a coleção não depende de preços do seed e é reexecutável."
+          }
+        },
+        {
+          "name": "Admin cria item A R$ 25,50 (201)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('itemAId', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              }
+            ],
+            "url": "{{baseUrl}}/itens-menu",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"categoriaId\": {{categoriaId}},\n  \"nome\": \"PM Item A\",\n  \"preco\": 25.5\n}"
+            }
+          }
+        },
+        {
+          "name": "Admin cria item B R$ 10,05 (201)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('itemBId', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              }
+            ],
+            "url": "{{baseUrl}}/itens-menu",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"categoriaId\": {{categoriaId}},\n  \"nome\": \"PM Item B\",\n  \"preco\": 10.05\n}"
+            }
+          }
+        },
+        {
+          "name": "Admin cria item indisponível (201)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('itemIndisponivelId', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              }
+            ],
+            "url": "{{baseUrl}}/itens-menu",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"categoriaId\": {{categoriaId}},\n  \"nome\": \"PM Item indisponível\",\n  \"preco\": 15,\n  \"disponivel\": false\n}"
+            }
+          }
+        },
+        {
+          "name": "Admin cria segunda categoria (201)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('nomeCategoria2', `PM Ped Inativa ${Date.now()}`);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('categoria2Id', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              }
+            ],
+            "url": "{{baseUrl}}/categorias",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"{{nomeCategoria2}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Admin cria item na segunda categoria (201)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('itemCategoriaInativaId', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              }
+            ],
+            "url": "{{baseUrl}}/itens-menu",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"categoriaId\": {{categoria2Id}},\n  \"nome\": \"PM Item categoria inativa\",\n  \"preco\": 20\n}"
+            }
+          }
+        },
+        {
+          "name": "Admin desativa a segunda categoria (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('categoria inativa', () => pm.expect(pm.response.json().ativa).to.eql(false));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              }
+            ],
+            "url": "{{baseUrl}}/categorias/{{categoria2Id}}/ativa",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ativa\": false\n}"
+            },
+            "description": "O item continua `disponivel = true`, mas a categoria inativa o torna não pedível."
+          }
+        },
+        {
+          "name": "Cliente1 acha reserva pendente/confirmada própria",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const r = pm.response.json().find((x) => ['pendente', 'confirmada'].includes(x.status));",
+                  "pm.test('cliente1 tem reserva pendente/confirmada (rode npm run seed)', () => pm.expect(r).to.be.an('object'));",
+                  "if (r) pm.collectionVariables.set('reservaClienteId', r.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenCliente}}"
+              }
+            ],
+            "url": "{{baseUrl}}/reservas"
+          }
+        },
+        {
+          "name": "Cliente2 acha reserva própria",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const r = pm.response.json()[0];",
+                  "pm.test('cliente2 tem reserva (rode npm run seed)', () => pm.expect(r).to.be.an('object'));",
+                  "if (r) pm.collectionVariables.set('reservaCliente2Id', r.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenCliente2}}"
+              }
+            ],
+            "url": "{{baseUrl}}/reservas"
+          }
+        },
+        {
+          "name": "Admin acha reserva cancelada",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const r = pm.response.json()[0];",
+                  "pm.test('existe reserva cancelada (rode npm run seed)', () => pm.expect(r).to.be.an('object'));",
+                  "if (r) { pm.collectionVariables.set('reservaCanceladaId', r.id); pm.collectionVariables.set('reservaCanceladaClienteId', r.clienteId); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              }
+            ],
+            "url": "{{baseUrl}}/reservas?status=cancelada"
+          }
+        },
+        {
+          "name": "Admin acha reserva concluída",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const r = pm.response.json()[0];",
+                  "pm.test('existe reserva concluída (rode npm run seed)', () => pm.expect(r).to.be.an('object'));",
+                  "if (r) { pm.collectionVariables.set('reservaConcluidaId', r.id); pm.collectionVariables.set('reservaConcluidaClienteId', r.clienteId); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              }
+            ],
+            "url": "{{baseUrl}}/reservas?status=concluida"
+          }
+        }
+      ]
+    },
+    {
+      "name": "1. Criação",
+      "item": [
+        {
+          "name": "Cria pedido sem token (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+                  "pm.test('corpo { erro }', () => pm.expect(pm.response.json().erro).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"itens\": [\n    {\n      \"itemMenuId\": {{itemBId}},\n      \"quantidade\": 1\n    }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "Cliente1 cria pedido sem reserva (201, itens repetidos somados)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "const p = pm.response.json();",
+                  "pm.test('clienteId forçado = cliente1 (body ignorado)', () => pm.expect(p.clienteId).to.eql(Number(pm.collectionVariables.get('cliente1Id'))));",
+                  "pm.test('status aberto, sem reserva/garçom/comissão', () => { pm.expect(p.status).to.eql('aberto'); pm.expect(p.reservaId).to.eql(null); pm.expect(p.garcomId).to.eql(null); pm.expect(p.valor_comissao).to.eql(null); pm.expect(p.pago_em).to.eql(null); });",
+                  "const a = p.itens.find((i) => i.itemMenuId === Number(pm.collectionVariables.get('itemAId')));",
+                  "const b = p.itens.find((i) => i.itemMenuId === Number(pm.collectionVariables.get('itemBId')));",
+                  "pm.test('2 linhas (item A somado: 2 + 1)', () => { pm.expect(p.itens.length).to.eql(2); pm.expect(a.quantidade).to.eql(3); });",
+                  "pm.test('snapshot do preço como string decimal', () => { pm.expect(a.preco_unitario).to.eql('25.50'); pm.expect(a.subtotal).to.eql('76.50'); pm.expect(b.subtotal).to.eql('10.05'); });",
+                  "pm.test('valor_total = soma dos subtotais (86.55)', () => pm.expect(p.valor_total).to.eql('86.55'));",
+                  "pm.test('itens incluem o item do cardápio', () => pm.expect(a.item.nome).to.eql('PM Item A'));",
+                  "pm.collectionVariables.set('pedidoId', p.id);",
+                  "pm.collectionVariables.set('linhaAId', a.id);",
+                  "pm.collectionVariables.set('linhaBId', b.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenCliente}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clienteId\": {{cliente2Id}},\n  \"itens\": [\n    {\n      \"itemMenuId\": {{itemAId}},\n      \"quantidade\": 2\n    },\n    {\n      \"itemMenuId\": {{itemBId}},\n      \"quantidade\": 1\n    },\n    {\n      \"itemMenuId\": {{itemAId}},\n      \"quantidade\": 1\n    }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "Cliente1 cria pedido com a própria reserva (201)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "const p = pm.response.json();",
+                  "pm.test('reservaId vinculado', () => pm.expect(p.reservaId).to.eql(Number(pm.collectionVariables.get('reservaClienteId'))));",
+                  "pm.test('reserva incluída (pendente/confirmada)', () => pm.expect(['pendente', 'confirmada']).to.include(p.reserva.status));",
+                  "pm.test('valor_total 10.05', () => pm.expect(p.valor_total).to.eql('10.05'));",
+                  "pm.collectionVariables.set('pedidoReservaId', p.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenCliente}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reservaId\": {{reservaClienteId}},\n  \"itens\": [\n    {\n      \"itemMenuId\": {{itemBId}},\n      \"quantidade\": 1\n    }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "Cliente1 cria pedido com reserva de outro cliente (403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                  "pm.test('corpo { erro }', () => pm.expect(pm.response.json().erro).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenCliente}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reservaId\": {{reservaCliente2Id}},\n  \"itens\": [\n    {\n      \"itemMenuId\": {{itemBId}},\n      \"quantidade\": 1\n    }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "Funcionario cria pedido com reserva de outro cliente (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('corpo { erro }', () => pm.expect(pm.response.json().erro).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenFuncionario}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clienteId\": {{cliente1Id}},\n  \"reservaId\": {{reservaCliente2Id}},\n  \"itens\": [\n    {\n      \"itemMenuId\": {{itemBId}},\n      \"quantidade\": 1\n    }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "Funcionario cria pedido com reserva cancelada (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('corpo { erro }', () => pm.expect(pm.response.json().erro).to.be.a('string'));",
+                  "pm.test('mensagem cita cancelada', () => pm.expect(pm.response.json().erro).to.include('cancelada'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenFuncionario}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clienteId\": {{reservaCanceladaClienteId}},\n  \"reservaId\": {{reservaCanceladaId}},\n  \"itens\": [\n    {\n      \"itemMenuId\": {{itemBId}},\n      \"quantidade\": 1\n    }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "Funcionario cria pedido com reserva concluída (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('corpo { erro }', () => pm.expect(pm.response.json().erro).to.be.a('string'));",
+                  "pm.test('mensagem cita concluida', () => pm.expect(pm.response.json().erro).to.include('concluida'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenFuncionario}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clienteId\": {{reservaConcluidaClienteId}},\n  \"reservaId\": {{reservaConcluidaId}},\n  \"itens\": [\n    {\n      \"itemMenuId\": {{itemBId}},\n      \"quantidade\": 1\n    }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "Cliente1 cria pedido com reserva inexistente (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 404', () => pm.response.to.have.status(404));",
+                  "pm.test('corpo { erro }', () => pm.expect(pm.response.json().erro).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenCliente}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reservaId\": 999999,\n  \"itens\": [\n    {\n      \"itemMenuId\": {{itemBId}},\n      \"quantidade\": 1\n    }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "Cliente1 pede item indisponível (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('corpo { erro }', () => pm.expect(pm.response.json().erro).to.be.a('string'));",
+                  "pm.test('mensagem cita indisponível', () => pm.expect(pm.response.json().erro).to.include('indisponível'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenCliente}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"itens\": [\n    {\n      \"itemMenuId\": {{itemIndisponivelId}},\n      \"quantidade\": 1\n    }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "Cliente1 pede item de categoria inativa (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('corpo { erro }', () => pm.expect(pm.response.json().erro).to.be.a('string'));",
+                  "pm.test('mensagem cita categoria desativada', () => pm.expect(pm.response.json().erro).to.include('desativada'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenCliente}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"itens\": [\n    {\n      \"itemMenuId\": {{itemCategoriaInativaId}},\n      \"quantidade\": 1\n    }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "Cliente1 pede item inexistente (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 404', () => pm.response.to.have.status(404));",
+                  "pm.test('corpo { erro }', () => pm.expect(pm.response.json().erro).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenCliente}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"itens\": [\n    {\n      \"itemMenuId\": 999999,\n      \"quantidade\": 1\n    }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "Pedido com lista de itens vazia (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('corpo { erro }', () => pm.expect(pm.response.json().erro).to.be.a('string'));",
+                  "pm.test('detalhes Zod', () => pm.expect(pm.response.json().detalhes).to.be.an('array'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenCliente}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"itens\": []\n}"
+            }
+          }
+        },
+        {
+          "name": "Pedido sem o campo itens (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('corpo { erro }', () => pm.expect(pm.response.json().erro).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenCliente}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos",
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            }
+          }
+        },
+        {
+          "name": "Pedido com quantidade 0 (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('corpo { erro }', () => pm.expect(pm.response.json().erro).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenCliente}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"itens\": [\n    {\n      \"itemMenuId\": {{itemBId}},\n      \"quantidade\": 0\n    }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "Pedido com quantidade fracionada (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('corpo { erro }', () => pm.expect(pm.response.json().erro).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenCliente}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"itens\": [\n    {\n      \"itemMenuId\": {{itemBId}},\n      \"quantidade\": 1.5\n    }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "Funcionario cria pedido sem clienteId (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('corpo { erro }', () => pm.expect(pm.response.json().erro).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenFuncionario}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"itens\": [\n    {\n      \"itemMenuId\": {{itemBId}},\n      \"quantidade\": 1\n    }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "Funcionario cria pedido para usuário não cliente (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('corpo { erro }', () => pm.expect(pm.response.json().erro).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenFuncionario}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clienteId\": {{funcionarioId}},\n  \"itens\": [\n    {\n      \"itemMenuId\": {{itemBId}},\n      \"quantidade\": 1\n    }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "Admin muda preço do item A para R$ 30,00 (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('preço novo', () => pm.expect(pm.response.json().preco).to.eql('30.00'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              }
+            ],
+            "url": "{{baseUrl}}/itens-menu/{{itemAId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"preco\": 30\n}"
+            }
+          }
+        },
+        {
+          "name": "Pedido antigo mantém o snapshot (25.50)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const p = pm.response.json();",
+                  "const a = p.itens.find((i) => i.itemMenuId === Number(pm.collectionVariables.get('itemAId')));",
+                  "pm.test('preco_unitario inalterado', () => pm.expect(a.preco_unitario).to.eql('25.50'));",
+                  "pm.test('valor_total inalterado', () => pm.expect(p.valor_total).to.eql('86.55'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenCliente}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos/{{pedidoId}}"
+          }
+        },
+        {
+          "name": "Funcionario cria pedido para cliente2 (201, preço novo)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "const p = pm.response.json();",
+                  "pm.test('clienteId = cliente2', () => pm.expect(p.clienteId).to.eql(Number(pm.collectionVariables.get('cliente2Id'))));",
+                  "pm.test('snapshot com o preço atual (30.00)', () => pm.expect(p.itens[0].preco_unitario).to.eql('30.00'));",
+                  "pm.collectionVariables.set('pedidoCliente2Id', p.id);",
+                  "pm.collectionVariables.set('linhaCliente2AId', p.itens[0].id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenFuncionario}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clienteId\": {{cliente2Id}},\n  \"itens\": [\n    {\n      \"itemMenuId\": {{itemAId}},\n      \"quantidade\": 1\n    }\n  ]\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Leitura e posse",
+      "item": [
+        {
+          "name": "Lista pedidos sem token (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+                  "pm.test('corpo { erro }', () => pm.expect(pm.response.json().erro).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/pedidos"
+          }
+        },
+        {
+          "name": "Cliente1 lista só os próprios",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('só pedidos do cliente', () => pm.response.json().forEach((p) => pm.expect(p.clienteId).to.eql(Number(pm.collectionVariables.get('cliente1Id')))));",
+                  "pm.test('inclui o pedido criado', () => pm.expect(pm.response.json().map((p) => p.id)).to.include(Number(pm.collectionVariables.get('pedidoId'))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenCliente}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos"
+          }
+        },
+        {
+          "name": "Cliente1 filtra ?clienteId= de outro (ignorado)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('só pedidos do cliente', () => pm.response.json().forEach((p) => pm.expect(p.clienteId).to.eql(Number(pm.collectionVariables.get('cliente1Id')))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenCliente}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos?clienteId={{cliente2Id}}"
+          }
+        },
+        {
+          "name": "Cliente1 busca o próprio pedido (200, relações incluídas)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const p = pm.response.json();",
+                  "pm.test('cliente incluído', () => pm.expect(p.cliente.id).to.eql(Number(pm.collectionVariables.get('cliente1Id'))));",
+                  "pm.test('garcom e reserva null', () => { pm.expect(p.garcom).to.eql(null); pm.expect(p.reserva).to.eql(null); });",
+                  "pm.test('itens com item do cardápio', () => p.itens.forEach((i) => pm.expect(i.item.nome).to.be.a('string')));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenCliente}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos/{{pedidoId}}"
+          }
+        },
+        {
+          "name": "Cliente2 busca pedido do cliente1 (403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                  "pm.test('corpo { erro }', () => pm.expect(pm.response.json().erro).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenCliente2}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos/{{pedidoId}}"
+          }
+        },
+        {
+          "name": "Funcionario filtra ?clienteId=cliente2",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('só pedidos do cliente', () => pm.response.json().forEach((p) => pm.expect(p.clienteId).to.eql(Number(pm.collectionVariables.get('cliente2Id')))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenFuncionario}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos?clienteId={{cliente2Id}}"
+          }
+        },
+        {
+          "name": "Admin filtra ?status=aberto",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('todos abertos', () => pm.response.json().forEach((p) => pm.expect(p.status).to.eql('aberto')));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos?status=aberto"
+          }
+        },
+        {
+          "name": "Admin filtra ?reservaId=",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const r = Number(pm.collectionVariables.get('reservaClienteId'));",
+                  "pm.test('todos da reserva', () => pm.response.json().forEach((p) => pm.expect(p.reservaId).to.eql(r)));",
+                  "pm.test('inclui o pedido com reserva', () => pm.expect(pm.response.json().map((p) => p.id)).to.include(Number(pm.collectionVariables.get('pedidoReservaId'))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos?reservaId={{reservaClienteId}}"
+          }
+        },
+        {
+          "name": "Filtro status inválido (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('corpo { erro }', () => pm.expect(pm.response.json().erro).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos?status=voando"
+          }
+        },
+        {
+          "name": "Busca pedido inexistente (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 404', () => pm.response.to.have.status(404));",
+                  "pm.test('corpo { erro }', () => pm.expect(pm.response.json().erro).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos/999999"
+          }
+        },
+        {
+          "name": "Busca pedido com id inválido (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('corpo { erro }', () => pm.expect(pm.response.json().erro).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos/abc"
+          }
+        },
+        {
+          "name": "Funcionario lista garçons (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('inclui funcionario1', () => pm.expect(pm.response.json().map((g) => g.id)).to.include(Number(pm.collectionVariables.get('funcionarioId'))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenFuncionario}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos/garcons"
+          }
+        },
+        {
+          "name": "Cliente lista garçons (403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                  "pm.test('corpo { erro }', () => pm.expect(pm.response.json().erro).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenCliente}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos/garcons"
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Itens (só com pedido aberto)",
+      "item": [
+        {
+          "name": "Cliente1 adiciona item B de novo (soma na mesma linha)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const p = pm.response.json();",
+                  "const b = p.itens.find((i) => i.itemMenuId === Number(pm.collectionVariables.get('itemBId')));",
+                  "pm.test('mesma linha, quantidade 3', () => { pm.expect(b.id).to.eql(Number(pm.collectionVariables.get('linhaBId'))); pm.expect(b.quantidade).to.eql(3); pm.expect(b.subtotal).to.eql('30.15'); });",
+                  "pm.test('continua com 2 linhas', () => pm.expect(p.itens.length).to.eql(2));",
+                  "pm.test('valor_total recalculado (106.65)', () => pm.expect(p.valor_total).to.eql('106.65'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenCliente}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos/{{pedidoId}}/itens",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"itemMenuId\": {{itemBId}},\n  \"quantidade\": 2\n}"
+            }
+          }
+        },
+        {
+          "name": "Cliente1 adiciona item A de novo (linha mantém snapshot 25.50)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const p = pm.response.json();",
+                  "const a = p.itens.find((i) => i.itemMenuId === Number(pm.collectionVariables.get('itemAId')));",
+                  "pm.test('quantidade 4 a 25.50', () => { pm.expect(a.quantidade).to.eql(4); pm.expect(a.preco_unitario).to.eql('25.50'); pm.expect(a.subtotal).to.eql('102.00'); });",
+                  "pm.test('valor_total 132.15', () => pm.expect(p.valor_total).to.eql('132.15'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenCliente}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos/{{pedidoId}}/itens",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"itemMenuId\": {{itemAId}},\n  \"quantidade\": 1\n}"
+            }
+          }
+        },
+        {
+          "name": "Cliente1 adiciona item indisponível (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('corpo { erro }', () => pm.expect(pm.response.json().erro).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenCliente}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos/{{pedidoId}}/itens",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"itemMenuId\": {{itemIndisponivelId}},\n  \"quantidade\": 1\n}"
+            }
+          }
+        },
+        {
+          "name": "Cliente1 adiciona item de categoria inativa (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('corpo { erro }', () => pm.expect(pm.response.json().erro).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenCliente}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos/{{pedidoId}}/itens",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"itemMenuId\": {{itemCategoriaInativaId}},\n  \"quantidade\": 1\n}"
+            }
+          }
+        },
+        {
+          "name": "Cliente1 adiciona com campo extra (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('corpo { erro }', () => pm.expect(pm.response.json().erro).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenCliente}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos/{{pedidoId}}/itens",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"itemMenuId\": {{itemBId}},\n  \"quantidade\": 1,\n  \"preco_unitario\": 0.01\n}"
+            }
+          }
+        },
+        {
+          "name": "Cliente2 adiciona item ao pedido do cliente1 (403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                  "pm.test('corpo { erro }', () => pm.expect(pm.response.json().erro).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenCliente2}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos/{{pedidoId}}/itens",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"itemMenuId\": {{itemBId}},\n  \"quantidade\": 1\n}"
+            }
+          }
+        },
+        {
+          "name": "Cliente1 altera quantidade da linha A para 2 (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const p = pm.response.json();",
+                  "const a = p.itens.find((i) => i.itemMenuId === Number(pm.collectionVariables.get('itemAId')));",
+                  "pm.test('subtotal 51.00', () => pm.expect(a.subtotal).to.eql('51.00'));",
+                  "pm.test('valor_total 81.15', () => pm.expect(p.valor_total).to.eql('81.15'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenCliente}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos/{{pedidoId}}/itens/{{linhaAId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantidade\": 2\n}"
+            }
+          }
+        },
+        {
+          "name": "Cliente1 altera quantidade para 0 (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('corpo { erro }', () => pm.expect(pm.response.json().erro).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenCliente}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos/{{pedidoId}}/itens/{{linhaAId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantidade\": 0\n}"
+            }
+          }
+        },
+        {
+          "name": "Cliente1 altera linha inexistente (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 404', () => pm.response.to.have.status(404));",
+                  "pm.test('corpo { erro }', () => pm.expect(pm.response.json().erro).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenCliente}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos/{{pedidoId}}/itens/999999",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantidade\": 1\n}"
+            }
+          }
+        },
+        {
+          "name": "Funcionario adiciona item ao pedido do cliente (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const p = pm.response.json();",
+                  "const b = p.itens.find((i) => i.itemMenuId === Number(pm.collectionVariables.get('itemBId')));",
+                  "pm.test('item B quantidade 4', () => pm.expect(b.quantidade).to.eql(4));",
+                  "pm.test('valor_total 91.20', () => pm.expect(pm.response.json().valor_total).to.eql('91.20'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenFuncionario}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos/{{pedidoId}}/itens",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"itemMenuId\": {{itemBId}},\n  \"quantidade\": 1\n}"
+            }
+          }
+        },
+        {
+          "name": "Cliente1 altera quantidade da linha B para 1 (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('valor_total 61.05', () => pm.expect(pm.response.json().valor_total).to.eql('61.05'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenCliente}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos/{{pedidoId}}/itens/{{linhaBId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantidade\": 1\n}"
+            },
+            "description": "Total final do pedido principal = 61.05 → comissão 6,105 arredondada para 6.11 no pagamento."
+          }
+        },
+        {
+          "name": "Cliente2 adiciona item B ao próprio pedido (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('valor_total 40.05', () => pm.expect(pm.response.json().valor_total).to.eql('40.05'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenCliente2}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos/{{pedidoCliente2Id}}/itens",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"itemMenuId\": {{itemBId}},\n  \"quantidade\": 1\n}"
+            }
+          }
+        },
+        {
+          "name": "Cliente2 remove a linha do item A (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const p = pm.response.json();",
+                  "pm.test('sobra 1 linha', () => pm.expect(p.itens.length).to.eql(1));",
+                  "pm.test('valor_total 10.05', () => pm.expect(p.valor_total).to.eql('10.05'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenCliente2}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos/{{pedidoCliente2Id}}/itens/{{linhaCliente2AId}}"
+          }
+        },
+        {
+          "name": "Cliente1 remove a última linha do pedido (400)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.sendRequest({ url: pm.collectionVariables.get('baseUrl') + '/pedidos/' + pm.collectionVariables.get('pedidoReservaId'), header: { Authorization: 'Bearer ' + pm.collectionVariables.get('tokenCliente') } }, (err, res) => {",
+                  "  if (!err) pm.collectionVariables.set('linhaReservaId', res.json().itens[0].id);",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('corpo { erro }', () => pm.expect(pm.response.json().erro).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenCliente}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos/{{pedidoReservaId}}/itens/{{linhaReservaId}}",
+            "description": "Pedido não fica vazio: para desistir, cancele o pedido."
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Fluxo completo e pagamento (10%)",
+      "item": [
+        {
+          "name": "Cliente1 tenta aberto → em_preparo (403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                  "pm.test('corpo { erro }', () => pm.expect(pm.response.json().erro).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenCliente}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos/{{pedidoId}}/status",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"em_preparo\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Funcionario tenta aberto → pronto (400 transição inválida)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('corpo { erro }', () => pm.expect(pm.response.json().erro).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenFuncionario}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos/{{pedidoId}}/status",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"pronto\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Funcionario aberto → em_preparo (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('status em_preparo', () => pm.expect(pm.response.json().status).to.eql('em_preparo'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenFuncionario}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos/{{pedidoId}}/status",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"em_preparo\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Cliente1 adiciona item em em_preparo (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('corpo { erro }', () => pm.expect(pm.response.json().erro).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenCliente}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos/{{pedidoId}}/itens",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"itemMenuId\": {{itemBId}},\n  \"quantidade\": 1\n}"
+            }
+          }
+        },
+        {
+          "name": "Funcionario altera quantidade em em_preparo (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('corpo { erro }', () => pm.expect(pm.response.json().erro).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenFuncionario}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos/{{pedidoId}}/itens/{{linhaAId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantidade\": 1\n}"
+            }
+          }
+        },
+        {
+          "name": "Cliente1 cancela pedido em_preparo (403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                  "pm.test('corpo { erro }', () => pm.expect(pm.response.json().erro).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenCliente}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos/{{pedidoId}}/status",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"cancelado\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Funcionario em_preparo → pronto (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('status pronto', () => pm.expect(pm.response.json().status).to.eql('pronto'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenFuncionario}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos/{{pedidoId}}/status",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"pronto\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Funcionario pronto → entregue (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('status entregue', () => pm.expect(pm.response.json().status).to.eql('entregue'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenFuncionario}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos/{{pedidoId}}/status",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"entregue\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Cliente1 paga sem garçom (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('corpo { erro }', () => pm.expect(pm.response.json().erro).to.be.a('string'));",
+                  "pm.test('mensagem cita garçom', () => pm.expect(pm.response.json().erro).to.include('garçom'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenCliente}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos/{{pedidoId}}/status",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"pago\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Cliente1 atribui garçom (403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                  "pm.test('corpo { erro }', () => pm.expect(pm.response.json().erro).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenCliente}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos/{{pedidoId}}/garcom",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"garcomId\": {{funcionarioId}}\n}"
+            }
+          }
+        },
+        {
+          "name": "Funcionario atribui admin como garçom (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('corpo { erro }', () => pm.expect(pm.response.json().erro).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenFuncionario}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos/{{pedidoId}}/garcom",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"garcomId\": {{adminId}}\n}"
+            }
+          }
+        },
+        {
+          "name": "Funcionario atribui garçom inexistente (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 404', () => pm.response.to.have.status(404));",
+                  "pm.test('corpo { erro }', () => pm.expect(pm.response.json().erro).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenFuncionario}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos/{{pedidoId}}/garcom",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"garcomId\": 999999\n}"
+            }
+          }
+        },
+        {
+          "name": "Funcionario atribui garçom sem garcomId (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('corpo { erro }', () => pm.expect(pm.response.json().erro).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenFuncionario}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos/{{pedidoId}}/garcom",
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            }
+          }
+        },
+        {
+          "name": "Funcionario atribui funcionario1 como garçom (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('garcom incluído', () => pm.expect(pm.response.json().garcom.id).to.eql(Number(pm.collectionVariables.get('funcionarioId'))));",
+                  "pm.test('status continua entregue', () => pm.expect(pm.response.json().status).to.eql('entregue'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenFuncionario}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos/{{pedidoId}}/garcom",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"garcomId\": {{funcionarioId}}\n}"
+            }
+          }
+        },
+        {
+          "name": "Cliente2 paga pedido do cliente1 (403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                  "pm.test('corpo { erro }', () => pm.expect(pm.response.json().erro).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenCliente2}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos/{{pedidoId}}/status",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"pago\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Cliente1 paga o próprio pedido (200, comissão 10%)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('status pago', () => pm.expect(pm.response.json().status).to.eql('pago'));",
+                  "const p = pm.response.json();",
+                  "pm.test('valor_total 61.05', () => pm.expect(p.valor_total).to.eql('61.05'));",
+                  "pm.test('valor_comissao = round(61.05 × 10%, 2) = 6.11', () => pm.expect(p.valor_comissao).to.eql('6.11'));",
+                  "pm.test('pago_em preenchido', () => pm.expect(p.pago_em).to.be.a('string'));",
+                  "pm.test('garcomId gravado', () => pm.expect(p.garcomId).to.eql(Number(pm.collectionVariables.get('funcionarioId'))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenCliente}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos/{{pedidoId}}/status",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"pago\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Admin cancela pedido pago (400 terminal)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('corpo { erro }', () => pm.expect(pm.response.json().erro).to.be.a('string'));",
+                  "pm.test('mensagem cita terminal', () => pm.expect(pm.response.json().erro).to.include('terminal'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos/{{pedidoId}}/status",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"cancelado\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Funcionario tenta pago → entregue (400 terminal)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('corpo { erro }', () => pm.expect(pm.response.json().erro).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenFuncionario}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos/{{pedidoId}}/status",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"entregue\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Funcionario troca garçom de pedido pago (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('corpo { erro }', () => pm.expect(pm.response.json().erro).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenFuncionario}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos/{{pedidoId}}/garcom",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"garcomId\": {{funcionarioId}}\n}"
+            }
+          }
+        },
+        {
+          "name": "Status inválido no corpo (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('corpo { erro }', () => pm.expect(pm.response.json().erro).to.be.a('string'));",
+                  "pm.test('detalhes Zod', () => pm.expect(pm.response.json().detalhes).to.be.an('array'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenFuncionario}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos/{{pedidoId}}/status",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"voando\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Status de pedido inexistente (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 404', () => pm.response.to.have.status(404));",
+                  "pm.test('corpo { erro }', () => pm.expect(pm.response.json().erro).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenFuncionario}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos/999999/status",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"em_preparo\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Cancelamentos",
+      "item": [
+        {
+          "name": "Cliente1 cancela o próprio pedido aberto (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('status cancelado', () => pm.expect(pm.response.json().status).to.eql('cancelado'));",
+                  "pm.test('sem comissão', () => pm.expect(pm.response.json().valor_comissao).to.eql(null));",
+                  "pm.test('reserva continua vinculada', () => pm.expect(pm.response.json().reservaId).to.eql(Number(pm.collectionVariables.get('reservaClienteId'))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenCliente}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos/{{pedidoReservaId}}/status",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"cancelado\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Funcionario tenta cancelado → em_preparo (400 terminal)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('corpo { erro }', () => pm.expect(pm.response.json().erro).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenFuncionario}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos/{{pedidoReservaId}}/status",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"em_preparo\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Cliente1 adiciona item em pedido cancelado (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('corpo { erro }', () => pm.expect(pm.response.json().erro).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenCliente}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos/{{pedidoReservaId}}/itens",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"itemMenuId\": {{itemBId}},\n  \"quantidade\": 1\n}"
+            }
+          }
+        },
+        {
+          "name": "Funcionario aberto → em_preparo (pedido do cliente2)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('status em_preparo', () => pm.expect(pm.response.json().status).to.eql('em_preparo'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenFuncionario}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos/{{pedidoCliente2Id}}/status",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"em_preparo\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Funcionario em_preparo → pronto (pedido do cliente2)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('status pronto', () => pm.expect(pm.response.json().status).to.eql('pronto'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenFuncionario}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos/{{pedidoCliente2Id}}/status",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"pronto\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Funcionario pronto → entregue (pedido do cliente2)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('status entregue', () => pm.expect(pm.response.json().status).to.eql('entregue'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenFuncionario}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos/{{pedidoCliente2Id}}/status",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"entregue\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Cliente2 cancela pedido entregue (403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                  "pm.test('corpo { erro }', () => pm.expect(pm.response.json().erro).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenCliente2}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos/{{pedidoCliente2Id}}/status",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"cancelado\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Funcionario cancela pedido entregue (403, só admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                  "pm.test('corpo { erro }', () => pm.expect(pm.response.json().erro).to.be.a('string'));",
+                  "pm.test('mensagem cita admin', () => pm.expect(pm.response.json().erro).to.include('admin'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenFuncionario}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos/{{pedidoCliente2Id}}/status",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"cancelado\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Admin cancela pedido entregue — excepcional (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('status cancelado', () => pm.expect(pm.response.json().status).to.eql('cancelado'));",
+                  "pm.test('sem comissão nem pagamento', () => { pm.expect(pm.response.json().valor_comissao).to.eql(null); pm.expect(pm.response.json().pago_em).to.eql(null); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos/{{pedidoCliente2Id}}/status",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"cancelado\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Funcionario cria pedido para cliente1 (201)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('pedidoCancelarId', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenFuncionario}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clienteId\": {{cliente1Id}},\n  \"itens\": [\n    {\n      \"itemMenuId\": {{itemBId}},\n      \"quantidade\": 1\n    }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "Funcionario aberto → em_preparo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('status em_preparo', () => pm.expect(pm.response.json().status).to.eql('em_preparo'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenFuncionario}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos/{{pedidoCancelarId}}/status",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"em_preparo\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Funcionario cancela pedido em_preparo (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('status cancelado', () => pm.expect(pm.response.json().status).to.eql('cancelado'));",
+                  "pm.test('sem comissão', () => pm.expect(pm.response.json().valor_comissao).to.eql(null));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenFuncionario}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos/{{pedidoCancelarId}}/status",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"cancelado\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Limpeza",
+      "item": [
+        {
+          "name": "Admin desativa a categoria da execução",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              }
+            ],
+            "url": "{{baseUrl}}/categorias/{{categoriaId}}/ativa",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ativa\": false\n}"
+            },
+            "description": "Itens PM somem do cardápio do cliente; os pedidos da execução mantêm o histórico (FK RESTRICT, sem DELETE)."
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3001/api"
+    },
+    {
+      "key": "senhaDemo",
+      "value": "123456"
+    },
+    {
+      "key": "tokenAdmin",
+      "value": ""
+    },
+    {
+      "key": "tokenFuncionario",
+      "value": ""
+    },
+    {
+      "key": "tokenCliente",
+      "value": ""
+    },
+    {
+      "key": "tokenCliente2",
+      "value": ""
+    },
+    {
+      "key": "adminId",
+      "value": ""
+    },
+    {
+      "key": "funcionarioId",
+      "value": ""
+    },
+    {
+      "key": "cliente1Id",
+      "value": ""
+    },
+    {
+      "key": "cliente2Id",
+      "value": ""
+    },
+    {
+      "key": "nomeCategoria",
+      "value": ""
+    },
+    {
+      "key": "nomeCategoria2",
+      "value": ""
+    },
+    {
+      "key": "categoriaId",
+      "value": ""
+    },
+    {
+      "key": "categoria2Id",
+      "value": ""
+    },
+    {
+      "key": "itemAId",
+      "value": ""
+    },
+    {
+      "key": "itemBId",
+      "value": ""
+    },
+    {
+      "key": "itemIndisponivelId",
+      "value": ""
+    },
+    {
+      "key": "itemCategoriaInativaId",
+      "value": ""
+    },
+    {
+      "key": "reservaClienteId",
+      "value": ""
+    },
+    {
+      "key": "reservaCliente2Id",
+      "value": ""
+    },
+    {
+      "key": "reservaCanceladaId",
+      "value": ""
+    },
+    {
+      "key": "reservaCanceladaClienteId",
+      "value": ""
+    },
+    {
+      "key": "reservaConcluidaId",
+      "value": ""
+    },
+    {
+      "key": "reservaConcluidaClienteId",
+      "value": ""
+    },
+    {
+      "key": "pedidoId",
+      "value": ""
+    },
+    {
+      "key": "linhaAId",
+      "value": ""
+    },
+    {
+      "key": "linhaBId",
+      "value": ""
+    },
+    {
+      "key": "pedidoReservaId",
+      "value": ""
+    },
+    {
+      "key": "linhaReservaId",
+      "value": ""
+    },
+    {
+      "key": "pedidoCliente2Id",
+      "value": ""
+    },
+    {
+      "key": "linhaCliente2AId",
+      "value": ""
+    },
+    {
+      "key": "pedidoCancelarId",
+      "value": ""
+    }
+  ],
+  "auth": {
+    "type": "noauth"
+  }
+}

@@ -1,4 +1,4 @@
-# Checklist — Fase 0 (Planejamento) + Fase 1 (Scaffold) + Fase 2 (Auth) + Fase 3 (Mesas e reservas) + Fase 4 (Cardápio)
+# Checklist — Fase 0 (Planejamento) + Fase 1 (Scaffold) + Fase 2 (Auth) + Fase 3 (Mesas e reservas) + Fase 4 (Cardápio) + Fase 5 (Pedidos)
 
 Marcado = fechado nesta fase.
 
@@ -91,12 +91,30 @@ Detalhe: [`FASE4_CARDAPIO.md`](FASE4_CARDAPIO.md).
 
 ---
 
-## Próximas fases (fora da Fase 4)
+## Fase 5 — pedidos e compra antecipada (concluído)
 
-- [ ] Pedidos: `pedidos` e `pedido_itens`, fluxo de status, garçom e 10%
-- [ ] Financeiro: `compras` e relatórios
-- [ ] Seed de domínio restante (pedidos, compras)
-- [ ] Telas de pedidos e financeiro nos frontends
+Detalhe: [`FASE5_PEDIDOS.md`](FASE5_PEDIDOS.md).
+
+- [x] Migrations + models `pedidos` e `pedido_itens` (06 e 07 de `MODELO_DADOS.md`), FKs `RESTRICT`, CHECKs (incl. pago ⇒ garçom + comissão + `pago_em`), ENUM de status, associações
+- [x] Item pedível = disponível **e** categoria ativa (checado em transação); preço snapshot; totais em centavos; item repetido soma na mesma linha
+- [x] Itens só com pedido `aberto` (adicionar / alterar quantidade / remover linha; pedido nunca vazio)
+- [x] Transições de §4 com perfis exatos (cliente: cancelar `aberto` e pagar o próprio; `entregue → cancelado` só admin); terminais travados
+- [x] Garçom (funcionário ativo) obrigatório para `pago`; comissão de 10% gravada no pagamento; cancelado sem comissão
+- [x] Compra antecipada: `reservaId` opcional, mesma pessoa, reserva `pendente`/`confirmada`; cancelar reserva não cancela pedido
+- [x] RBAC/posse: cliente só os próprios; equipe vê todos, cria para cliente, atribui garçom e avança preparo
+- [x] Schemas Zod de pedidos; rotas `/api/pedidos` (+ `GET /pedidos/garcons` auxiliar); sem DELETE de pedido
+- [x] Seed: 4 pedidos (aberto com reserva, entregue com garçom, em preparo, pago com comissão), reexecutável
+- [x] Coleção Postman `backend/postman/Get-Order-Pedidos.postman_collection.json`
+- [x] Frontend cliente: montar pedido a partir do cardápio (reserva opcional), meus pedidos, cancelar, pagar
+- [x] Frontend gestão: aba Pedidos (filtro, garçom, fluxo de status, cancelamento excepcional só admin)
+
+---
+
+## Próximas fases (fora da Fase 5)
+
+- [ ] Financeiro: `compras` (migration 08), CRUD admin e relatórios (vendas − compras, comissões por garçom)
+- [ ] Seed de `compras`
+- [ ] Telas de compras e financeiro nos frontends
 
 ---
 

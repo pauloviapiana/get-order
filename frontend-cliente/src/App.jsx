@@ -4,14 +4,16 @@ import { lerUsuario, limparSessao, salvarSessao } from './services/sessao';
 import Cadastro from './components/Cadastro';
 import Cardapio from './components/Cardapio';
 import Login from './components/Login';
+import MeusPedidos from './components/MeusPedidos';
 import MinhasReservas from './components/MinhasReservas';
 import NovaReserva from './components/NovaReserva';
 
 function App() {
   const [usuario, setUsuario] = useState(lerUsuario);
   const [aba, setAba] = useState('login');
-  // Incrementa após criar reserva para recarregar "Minhas reservas"
+  // Incrementam após criar reserva/pedido para recarregar as listas
   const [versaoReservas, setVersaoReservas] = useState(0);
+  const [versaoPedidos, setVersaoPedidos] = useState(0);
 
   // Token salvo pode ter expirado (30 min): confirma com a API ao abrir
   useEffect(() => {
@@ -61,11 +63,14 @@ function App() {
         </section>
 
         <section>
-          <h2>Cardápio</h2>
-          <Cardapio />
+          <h2>Cardápio e pedido</h2>
+          <Cardapio versaoReservas={versaoReservas} onPedidoCriado={() => setVersaoPedidos((v) => v + 1)} />
         </section>
 
-        <p className="nota">Pedidos chegam nas próximas fases.</p>
+        <section>
+          <h2>Meus pedidos</h2>
+          <MeusPedidos versao={versaoPedidos} />
+        </section>
       </main>
     );
   }

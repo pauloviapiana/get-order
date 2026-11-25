@@ -16,9 +16,10 @@ Planejamento e modelo de dados estão em [`docs/`](docs/):
 - [FASE2_AUTH.md](docs/FASE2_AUTH.md) — endpoints de auth/usuários, erros e usuários seed  
 - [FASE3_MESAS_RESERVAS.md](docs/FASE3_MESAS_RESERVAS.md) — mesas, reservas, disponibilidade, status e seed  
 - [FASE4_CARDAPIO.md](docs/FASE4_CARDAPIO.md) — categorias e itens do cardápio, visibilidade por perfil e seed  
+- [FASE5_PEDIDOS.md](docs/FASE5_PEDIDOS.md) — pedidos, itens com preço snapshot, status, garçom, comissão de 10% e compra antecipada  
 
-**Fases 0 a 4 concluídas** (planejamento, scaffold, auth, mesas e reservas, cardápio).  
-Pedidos e financeiro nas fases seguintes.
+**Fases 0 a 5 concluídas** (planejamento, scaffold, auth, mesas e reservas, cardápio, pedidos).  
+Financeiro (compras e relatórios) na fase seguinte.
 
 ---
 
@@ -56,8 +57,8 @@ npm run seed
 npm run dev
 ```
 
-- `db:migrate` cria as tabelas `usuarios`, `mesas`, `reservas`, `categorias_menu` e `itens_menu`.
-- `npm run seed` cria os usuários demo, 7 mesas (M1–M7, M7 inativa), 4 reservas de exemplo e o cardápio (5 categorias, 9 itens); pode ser executado de novo sem duplicar.
+- `db:migrate` cria as tabelas `usuarios`, `mesas`, `reservas`, `categorias_menu`, `itens_menu`, `pedidos` e `pedido_itens`.
+- `npm run seed` cria os usuários demo, 7 mesas (M1–M7, M7 inativa), 4 reservas de exemplo, o cardápio (5 categorias, 9 itens) e 4 pedidos de exemplo (aberto, em preparo, entregue e pago); pode ser executado de novo sem duplicar.
 
 API em `http://localhost:3001` (rotas sob `/api`).  
 Teste: `GET http://localhost:3001/api/health` → `{ "ok": true }`.
@@ -77,10 +78,12 @@ Coleções Postman (rodar cada uma inteira, em ordem):
 - `backend/postman/Get-Order-Auth.postman_collection.json` — auth e usuários ([FASE2_AUTH.md](docs/FASE2_AUTH.md))
 - `backend/postman/Get-Order-Mesas-Reservas.postman_collection.json` — mesas e reservas ([FASE3_MESAS_RESERVAS.md](docs/FASE3_MESAS_RESERVAS.md))
 - `backend/postman/Get-Order-Cardapio.postman_collection.json` — categorias e itens do cardápio ([FASE4_CARDAPIO.md](docs/FASE4_CARDAPIO.md))
+- `backend/postman/Get-Order-Pedidos.postman_collection.json` — pedidos, garçom, pagamento e 10% ([FASE5_PEDIDOS.md](docs/FASE5_PEDIDOS.md))
 
 ```powershell
 postman collection run backend/postman/Get-Order-Mesas-Reservas.postman_collection.json
 postman collection run backend/postman/Get-Order-Cardapio.postman_collection.json
+postman collection run backend/postman/Get-Order-Pedidos.postman_collection.json
 ```
 
 ### 3) Frontend cliente (porta 5173)
@@ -105,8 +108,8 @@ npm install
 npm run dev
 ```
 
-- **Cliente (5173):** criar conta, entrar e sair; consultar mesas livres, reservar (sex/sáb/dom, 18:00–22:30), ver e cancelar as próprias reservas; consultar o cardápio (só itens disponíveis).
-- **Gestão (5174):** login de admin/funcionário (cliente é recusado); aba Reservas (filtros, confirmar/concluir/cancelar), aba Mesas e aba Cardápio (admin cria/edita/desativa; funcionário consulta); admin vê também a lista de usuários.
+- **Cliente (5173):** criar conta, entrar e sair; consultar mesas livres, reservar (sex/sáb/dom, 18:00–22:30), ver e cancelar as próprias reservas; montar pedido a partir do cardápio (com reserva opcional), ver os próprios pedidos, cancelar (aberto) e pagar (entregue).
+- **Gestão (5174):** login de admin/funcionário (cliente é recusado); aba Reservas (filtros, confirmar/concluir/cancelar), aba Pedidos (garçom, fluxo de preparo, pagamento, cancelamento), aba Mesas e aba Cardápio (admin cria/edita/desativa; funcionário consulta); admin vê também a lista de usuários.
 
 ---
 

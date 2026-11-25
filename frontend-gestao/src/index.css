@@ -111,6 +111,10 @@ button:disabled {
   box-sizing: border-box;
 }
 
+.tabela .select-garcom {
+  min-width: 10rem;
+}
+
 .acoes {
   display: flex;
   flex-wrap: wrap;
