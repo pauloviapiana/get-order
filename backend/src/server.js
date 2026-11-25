@@ -14,6 +14,14 @@ const clientOrigins = (process.env.CLIENT_ORIGINS || '')
   .map((origin) => origin.trim())
   .filter(Boolean);
 
+// Lista explícita. Vazio ou "*" derruba o boot: a demo não sobe com CORS aberto ou quebrado.
+if (clientOrigins.length === 0 || clientOrigins.includes('*')) {
+  console.error(
+    'CLIENT_ORIGINS deve listar as origens explícitas dos frontends (ex.: http://localhost:5173,http://localhost:5174). Lista vazia ou "*" impede o boot.'
+  );
+  process.exit(1);
+}
+
 app.use(
   cors({
     origin: clientOrigins,
@@ -31,6 +39,7 @@ async function start() {
 
     app.listen(PORT, () => {
       console.log(`Servidor rodando na porta ${PORT}`);
+      console.log(`CORS: ${clientOrigins.join(', ')}`);
     });
   } catch (error) {
     console.error('Não foi possível conectar ao banco:', error.message);

@@ -6,21 +6,21 @@ Stack: **PERN** + **Sequelize com migrations**, JWT, bcrypt, Zod e API em camada
 
 ## Documentação
 
-Planejamento e modelo de dados estão em [`docs/`](docs/):
+Contrato da API e modelo estão em [`docs/`](docs/):
 
+- [DOCUMENTACAO.md](docs/DOCUMENTACAO.md) — inventário único (objetivo, stack, rotas, RBAC, seed)  
+- [schema_referencia.sql](docs/schema_referencia.sql) — SQL didático das 8 tabelas (a fonte de verdade continua sendo `db:migrate`)  
 - [FASE0_REGRAS.md](docs/FASE0_REGRAS.md) — regras e decisões fechadas  
 - [DER.md](docs/DER.md) — diagrama entidade-relacionamento  
 - [MODELO_DADOS.md](docs/MODELO_DADOS.md) — tabelas, campos e ordem de migrations  
 - [MATRIZ_RBAC.md](docs/MATRIZ_RBAC.md) — permissões por perfil  
 - [FASE0_CHECKLIST.md](docs/FASE0_CHECKLIST.md) — checklist por fase  
-- [FASE2_AUTH.md](docs/FASE2_AUTH.md) — endpoints de auth/usuários, erros e usuários seed  
-- [FASE3_MESAS_RESERVAS.md](docs/FASE3_MESAS_RESERVAS.md) — mesas, reservas, disponibilidade, status e seed  
-- [FASE4_CARDAPIO.md](docs/FASE4_CARDAPIO.md) — categorias e itens do cardápio, visibilidade por perfil e seed  
-- [FASE5_PEDIDOS.md](docs/FASE5_PEDIDOS.md) — pedidos, itens com preço snapshot, status, garçom, comissão de 10% e compra antecipada  
-- [FASE6_FINANCEIRO.md](docs/FASE6_FINANCEIRO.md) — compras (despesas), resumo vendas − compras e comissões por garçom  
+- [FASE2_AUTH.md](docs/FASE2_AUTH.md) … [FASE6_FINANCEIRO.md](docs/FASE6_FINANCEIRO.md) — notas de cada domínio (mantidas)  
+- [FASE7_DOCS_ERROS.md](docs/FASE7_DOCS_ERROS.md) — erros de banco, CORS e onde está a doc consolidada  
 
-**Fases 0 a 6 concluídas** (planejamento, scaffold, auth, mesas e reservas, cardápio, pedidos, financeiro).  
-Próxima: Fase 7 (erros, CORS e documentação de API consolidados).
+**Fases 0 a 7 concluídas** (planejamento, scaffold, auth, mesas e reservas, cardápio, pedidos, financeiro, erros/CORS/docs).  
+As UIs de cliente e gestão, previstas como Fases 8 e 9, já foram entregues nas Fases 2–6.  
+Próxima: Fase 10 (integração ponta a ponta e pacote de entrega). Fase 11 fica para polimento.
 
 ---
 
@@ -49,7 +49,7 @@ copy .env.example .env
 ```
 
 Edite `backend/.env` e preencha `DB_PASSWORD` e `JWT_SECRET`.  
-`CLIENT_ORIGINS` já lista as duas origens dos frontends (5173 e 5174).
+`CLIENT_ORIGINS` lista as duas origens (`http://localhost:5173,http://localhost:5174`). Se ficar vazio ou contiver `*`, o servidor encerra no boot.
 
 ```powershell
 npm install
@@ -74,13 +74,14 @@ Senha de todos: **`123456`**
 | funcionario | `funcionario1@getorder.com`, `funcionario2@getorder.com` |
 | cliente | `cliente1@getorder.com`, `cliente2@getorder.com`, `cliente3@getorder.com` |
 
-Coleções Postman (rodar cada uma inteira, em ordem):
+Coleções Postman (rodar cada uma inteira, em ordem — ver [backend/postman/README.md](backend/postman/README.md)):
 
 - `backend/postman/Get-Order-Auth.postman_collection.json` — auth e usuários ([FASE2_AUTH.md](docs/FASE2_AUTH.md))
 - `backend/postman/Get-Order-Mesas-Reservas.postman_collection.json` — mesas e reservas ([FASE3_MESAS_RESERVAS.md](docs/FASE3_MESAS_RESERVAS.md))
 - `backend/postman/Get-Order-Cardapio.postman_collection.json` — categorias e itens do cardápio ([FASE4_CARDAPIO.md](docs/FASE4_CARDAPIO.md))
 - `backend/postman/Get-Order-Pedidos.postman_collection.json` — pedidos, garçom, pagamento e 10% ([FASE5_PEDIDOS.md](docs/FASE5_PEDIDOS.md))
 - `backend/postman/Get-Order-Financeiro.postman_collection.json` — compras, resumo e comissões ([FASE6_FINANCEIRO.md](docs/FASE6_FINANCEIRO.md))
+- `backend/postman/Get-Order-API.postman_collection.json` — índice + contrato de erro (não substitui as cinco)
 
 ```powershell
 postman collection run backend/postman/Get-Order-Mesas-Reservas.postman_collection.json
@@ -114,6 +115,28 @@ npm run dev
 - **Cliente (5173):** criar conta, entrar e sair; consultar mesas livres, reservar (sex/sáb/dom, 18:00–22:30), ver e cancelar as próprias reservas; montar pedido a partir do cardápio (com reserva opcional), ver os próprios pedidos, cancelar (aberto) e pagar (entregue).
 - **Gestão (5174):** login de admin/funcionário (cliente é recusado); aba Reservas (filtros, confirmar/concluir/cancelar), aba Pedidos (garçom, fluxo de preparo, pagamento, cancelamento), aba Mesas e aba Cardápio (admin cria/edita/desativa; funcionário consulta); admin vê também Compras (despesas), Financeiro (resumo + comissões) e a lista de usuários; funcionário vê "Minhas comissões".
 
+### Erros e docs (Fase 7)
+
+Com a API no ar e o seed aplicado, o e-mail do admin já existe e o JSON quebrado não pode virar 500:
+
+```powershell
+curl.exe -s -w "`nHTTP %{http_code}`n" -X POST http://localhost:3001/api/auth/register -H "Content-Type: application/json" -d "{\"nome\":\"Admin Demo\",\"email\":\"admin@getorder.com\",\"senha\":\"123456\"}"
+
+curl.exe -s -w "`nHTTP %{http_code}`n" -X POST http://localhost:3001/api/auth/login -H "Content-Type: application/json" -d "{"
+```
+
+Esperado: **409** `{ "erro": "E-mail já cadastrado" }` e **400** `{ "erro": "JSON inválido no corpo da requisição" }`. Nenhum dos dois traz stack nem SQL.
+
+A coleção-índice cobre também mesa `M1` e categoria `Entradas` duplicadas:
+
+```powershell
+postman collection run backend/postman/Get-Order-API.postman_collection.json
+```
+
+FK (categoria inexistente no `INSERT`) e CHECK (`capacidade = 0` com a validação do model desligada) são traduzidos em `backend/src/utils/errosSequelize.js`. A service normalmente responde antes do banco; o mapeamento é a rede de segurança e foi exercido em transação com rollback (nada fica gravado).
+
+O catálogo de rotas está em [docs/DOCUMENTACAO.md](docs/DOCUMENTACAO.md). O SQL de referência não substitui a migration.
+
 ---
 
 ## Estrutura do repositório
@@ -123,7 +146,7 @@ get-order/
 ├── backend/              # Express + Sequelize + Zod (camadas)
 ├── frontend-cliente/     # Vite React — porta 5173
 ├── frontend-gestao/      # Vite React — porta 5174
-├── docs/                 # Fase 0 (fonte da verdade)
+├── docs/                 # regras, DER, documentação da API, SQL de referência
 ├── material-complementar/
 └── README.md
 ```

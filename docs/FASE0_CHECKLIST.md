@@ -1,4 +1,4 @@
-# Checklist — Fase 0 (Planejamento) + Fase 1 (Scaffold) + Fase 2 (Auth) + Fase 3 (Mesas e reservas) + Fase 4 (Cardápio) + Fase 5 (Pedidos) + Fase 6 (Financeiro)
+# Checklist — Fase 0 (Planejamento) + Fase 1 (Scaffold) + Fase 2 (Auth) + Fase 3 (Mesas e reservas) + Fase 4 (Cardápio) + Fase 5 (Pedidos) + Fase 6 (Financeiro) + Fase 7 (Erros, CORS e docs)
 
 Marcado = fechado nesta fase.
 
@@ -127,10 +127,37 @@ Detalhe: [`FASE6_FINANCEIRO.md`](FASE6_FINANCEIRO.md).
 
 ---
 
-## Próxima fase — Fase 7 (erros / CORS / docs API consolidados)
+## Fase 7 — erros, CORS e documentação (concluído)
 
-- [ ] Consolidar tratamento de erros (FK/CHECK do banco → 400/409) e revisar CORS
-- [ ] Documentação de API consolidada (hoje espalhada em `FASE2…FASE6`)
+Detalhe: [`FASE7_DOCS_ERROS.md`](FASE7_DOCS_ERROS.md). Inventário: [`DOCUMENTACAO.md`](DOCUMENTACAO.md). SQL didático: [`schema_referencia.sql`](schema_referencia.sql).
+
+- [x] FK ausente (`23503`) e vínculo `RESTRICT` (`23001`) → 409; CHECK / validação de model / tipo óbvio do Postgres → 400; UNIQUE generalizado (mensagens atuais mantidas)
+- [x] Client segue recebendo só `{ erro }` / `{ erro, detalhes }`; SQL e stack ficam no log do servidor
+- [x] CORS: `CLIENT_ORIGINS` com 5173 e 5174; boot encerra se a lista vier vazia ou com `*`
+- [x] `docs/DOCUMENTACAO.md` com o inventário das rotas reais
+- [x] `docs/schema_referencia.sql` com as 8 tabelas das migrations e ≥ 3 INSERTs cada
+- [x] `backend/postman/README.md` + coleção-índice `Get-Order-API.postman_collection.json`
+- [x] README da raiz atualizado (Fases 0–7)
+
+---
+
+## Fases 8 e 9 — UI (já cobertas nas Fases 2–6)
+
+O plano original separava a UI do cliente (Fase 8) e a UI da gestão (Fase 9). Essas telas entraram junto com o domínio:
+
+- cliente (5173): cadastro, login, cardápio, reservas, pedidos — Fases 2–5
+- gestão (5174): usuários, mesas, reservas, cardápio, pedidos, compras, financeiro — Fases 2–6
+
+Não há fase pendente de reconstruir interface.
+
+---
+
+## Próxima fase — Fase 10 (integração e entrega)
+
+- [ ] Ensaio ponta a ponta dos dois sites contra a API já documentada
+- [ ] README e checklist de entrega no espírito de um pacote final (o README de subida já existe)
+
+Depois: **Fase 11** — polimento de apresentação. Sem retrabalho de UI inventado aqui.
 
 ---
 

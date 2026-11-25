@@ -1,4 +1,5 @@
 import { ZodError } from 'zod';
+import { mapearErroSequelize } from '../utils/errosSequelize.js';
 import { HttpErro } from '../utils/HttpErro.js';
 
 export function rotaNaoEncontrada(req, res) {
@@ -29,12 +30,12 @@ export function tratarErros(error, req, res, next) {
     return res.status(400).json({ erro: 'JSON inválido no corpo da requisição' });
   }
 
-  // Corrida entre a checagem do service e o INSERT/UPDATE
-  if (error.name === 'SequelizeUniqueConstraintError') {
-    let mensagem = 'E-mail já cadastrado';
-    if (error.fields?.identificacao) mensagem = 'Identificação de mesa já cadastrada';
-    if (error.fields?.nome) mensagem = 'Categoria já cadastrada';
-    return res.status(409).json({ erro: mensagem });
+  // UNIQUE/FK/CHECK e validação do model. A checagem nos services continua
+  // lançando HttpErro; isto cobre a corrida com o banco e o que escapar da service.
+  const mapeado = mapearErroSequelize(error);
+  if (mapeado) {
+    if (mapeado.logar) console.error(error);
+    return res.status(mapeado.status).json(mapeado.body);
   }
 
   console.error(error);

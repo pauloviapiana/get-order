@@ -1,0 +1,182 @@
+{
+  "info": {
+    "name": "Get-Order — API (índice)",
+    "description": "Índice da Fase 7. As coleções de domínio continuam separadas; rode-as nesta ordem, com migrate + seed + API no ar:\n\n1. Get-Order-Auth.postman_collection.json\n2. Get-Order-Mesas-Reservas.postman_collection.json\n3. Get-Order-Cardapio.postman_collection.json\n4. Get-Order-Pedidos.postman_collection.json\n5. Get-Order-Financeiro.postman_collection.json\n\nEsta coleção não regrava esses fluxos. Os requests abaixo provam o contrato de erro no seed: JSON inválido → 400, e-mail/mesa/categoria duplicados → 409, corpo só com `erro` (sem stack nem SQL).\n\nFK e CHECK do Postgres são mapeados em `backend/src/utils/errosSequelize.js`. O caminho HTTP usual já devolve HttpErro antes do INSERT; o mapeamento cobre a corrida com o banco.\n\nVer `backend/postman/README.md` e `docs/DOCUMENTACAO.md`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3001/api" },
+    { "key": "senhaDemo", "value": "123456" },
+    { "key": "tokenAdmin", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Contrato de erro",
+      "item": [
+        {
+          "name": "Health",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('ok true', () => pm.expect(pm.response.json().ok).to.eql(true));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/health"
+          }
+        },
+        {
+          "name": "JSON inválido → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "const body = pm.response.json();",
+                  "pm.test('só erro', () => {",
+                  "  pm.expect(body.erro).to.be.a('string').and.not.empty;",
+                  "  pm.expect(body).to.not.have.property('stack');",
+                  "  pm.expect(body).to.not.have.property('sql');",
+                  "});",
+                  "pm.test('sem SQL no texto', () => {",
+                  "  pm.expect(pm.response.text().toLowerCase()).to.not.include('select ');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/auth/login"
+          }
+        },
+        {
+          "name": "E-mail duplicado → 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+                  "const body = pm.response.json();",
+                  "pm.test('mensagem de e-mail', () => pm.expect(body.erro).to.eql('E-mail já cadastrado'));",
+                  "pm.test('sem stack', () => pm.expect(body).to.not.have.property('stack'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Admin Duplicado\",\n  \"email\": \"admin@getorder.com\",\n  \"senha\": \"123456\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/auth/register"
+          }
+        },
+        {
+          "name": "Login admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const data = pm.response.json();",
+                  "pm.test('token', () => pm.expect(data.token).to.be.a('string').and.not.empty);",
+                  "if (data.token) pm.collectionVariables.set('tokenAdmin', data.token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@getorder.com\",\n  \"senha\": \"{{senhaDemo}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/auth/login"
+          }
+        },
+        {
+          "name": "Mesa duplicada → 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+                  "const body = pm.response.json();",
+                  "pm.test('mensagem de mesa', () => pm.expect(body.erro).to.eql('Identificação de mesa já cadastrada'));",
+                  "pm.test('sem sql', () => pm.expect(body).to.not.have.property('sql'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{tokenAdmin}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identificacao\": \"M1\",\n  \"capacidade\": 4\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/mesas"
+          }
+        },
+        {
+          "name": "Categoria duplicada → 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+                  "const body = pm.response.json();",
+                  "pm.test('mensagem de categoria', () => pm.expect(body.erro).to.eql('Categoria já cadastrada'));",
+                  "pm.test('sem stack', () => pm.expect(pm.response.text()).to.not.include('node_modules'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{tokenAdmin}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Entradas\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/categorias"
+          }
+        }
+      ]
+    }
+  ]
+}
