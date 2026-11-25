@@ -31,9 +31,9 @@ export function tratarErros(error, req, res, next) {
 
   // Corrida entre a checagem do service e o INSERT/UPDATE
   if (error.name === 'SequelizeUniqueConstraintError') {
-    const mensagem = error.fields?.identificacao
-      ? 'Identificação de mesa já cadastrada'
-      : 'E-mail já cadastrado';
+    let mensagem = 'E-mail já cadastrado';
+    if (error.fields?.identificacao) mensagem = 'Identificação de mesa já cadastrada';
+    if (error.fields?.nome) mensagem = 'Categoria já cadastrada';
     return res.status(409).json({ erro: mensagem });
   }
 

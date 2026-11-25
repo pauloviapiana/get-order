@@ -118,3 +118,12 @@ button:disabled {
 .tabela th {
   background: #efe6da;
 }
+
+.tabela .descricao {
+  font-size: 0.9rem;
+}
+
+.tabela .preco {
+  text-align: right;
+  white-space: nowrap;
+}

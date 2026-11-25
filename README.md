@@ -15,9 +15,10 @@ Planejamento e modelo de dados estão em [`docs/`](docs/):
 - [FASE0_CHECKLIST.md](docs/FASE0_CHECKLIST.md) — checklist por fase  
 - [FASE2_AUTH.md](docs/FASE2_AUTH.md) — endpoints de auth/usuários, erros e usuários seed  
 - [FASE3_MESAS_RESERVAS.md](docs/FASE3_MESAS_RESERVAS.md) — mesas, reservas, disponibilidade, status e seed  
+- [FASE4_CARDAPIO.md](docs/FASE4_CARDAPIO.md) — categorias e itens do cardápio, visibilidade por perfil e seed  
 
-**Fases 0 a 3 concluídas** (planejamento, scaffold, auth, mesas e reservas).  
-Cardápio, pedidos e financeiro nas fases seguintes.
+**Fases 0 a 4 concluídas** (planejamento, scaffold, auth, mesas e reservas, cardápio).  
+Pedidos e financeiro nas fases seguintes.
 
 ---
 
@@ -55,8 +56,8 @@ npm run seed
 npm run dev
 ```
 
-- `db:migrate` cria as tabelas `usuarios`, `mesas` e `reservas`.
-- `npm run seed` cria os usuários demo, 7 mesas (M1–M7, M7 inativa) e 4 reservas de exemplo; pode ser executado de novo sem duplicar.
+- `db:migrate` cria as tabelas `usuarios`, `mesas`, `reservas`, `categorias_menu` e `itens_menu`.
+- `npm run seed` cria os usuários demo, 7 mesas (M1–M7, M7 inativa), 4 reservas de exemplo e o cardápio (5 categorias, 9 itens); pode ser executado de novo sem duplicar.
 
 API em `http://localhost:3001` (rotas sob `/api`).  
 Teste: `GET http://localhost:3001/api/health` → `{ "ok": true }`.
@@ -75,9 +76,11 @@ Coleções Postman (rodar cada uma inteira, em ordem):
 
 - `backend/postman/Get-Order-Auth.postman_collection.json` — auth e usuários ([FASE2_AUTH.md](docs/FASE2_AUTH.md))
 - `backend/postman/Get-Order-Mesas-Reservas.postman_collection.json` — mesas e reservas ([FASE3_MESAS_RESERVAS.md](docs/FASE3_MESAS_RESERVAS.md))
+- `backend/postman/Get-Order-Cardapio.postman_collection.json` — categorias e itens do cardápio ([FASE4_CARDAPIO.md](docs/FASE4_CARDAPIO.md))
 
 ```powershell
 postman collection run backend/postman/Get-Order-Mesas-Reservas.postman_collection.json
+postman collection run backend/postman/Get-Order-Cardapio.postman_collection.json
 ```
 
 ### 3) Frontend cliente (porta 5173)
@@ -102,8 +105,8 @@ npm install
 npm run dev
 ```
 
-- **Cliente (5173):** criar conta, entrar e sair; consultar mesas livres, reservar (sex/sáb/dom, 18:00–22:30), ver e cancelar as próprias reservas.
-- **Gestão (5174):** login de admin/funcionário (cliente é recusado); aba Reservas (filtros, confirmar/concluir/cancelar) e aba Mesas (admin cria/edita/desativa; funcionário consulta); admin vê também a lista de usuários.
+- **Cliente (5173):** criar conta, entrar e sair; consultar mesas livres, reservar (sex/sáb/dom, 18:00–22:30), ver e cancelar as próprias reservas; consultar o cardápio (só itens disponíveis).
+- **Gestão (5174):** login de admin/funcionário (cliente é recusado); aba Reservas (filtros, confirmar/concluir/cancelar), aba Mesas e aba Cardápio (admin cria/edita/desativa; funcionário consulta); admin vê também a lista de usuários.
 
 ---
 

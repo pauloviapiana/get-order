@@ -1,4 +1,4 @@
-# Checklist — Fase 0 (Planejamento) + Fase 1 (Scaffold) + Fase 2 (Auth) + Fase 3 (Mesas e reservas)
+# Checklist — Fase 0 (Planejamento) + Fase 1 (Scaffold) + Fase 2 (Auth) + Fase 3 (Mesas e reservas) + Fase 4 (Cardápio)
 
 Marcado = fechado nesta fase.
 
@@ -76,13 +76,27 @@ Detalhe: [`FASE3_MESAS_RESERVAS.md`](FASE3_MESAS_RESERVAS.md).
 
 ---
 
-## Próximas fases (fora da Fase 3)
+## Fase 4 — cardápio (concluído)
 
-- [ ] Cardápio: `categorias_menu` e `itens_menu`
+Detalhe: [`FASE4_CARDAPIO.md`](FASE4_CARDAPIO.md).
+
+- [x] Cardápio: migrations + models `categorias_menu` e `itens_menu` (04 e 05 de `MODELO_DADOS.md`), FK `RESTRICT`, CHECK `preco >= 0`, associações
+- [x] `categoriaService` / `itemMenuService`: CRUD admin, nome de categoria único (409), item só em categoria ativa, sem DELETE (`ativa` / `disponivel`)
+- [x] Visibilidade: funcionário/cliente só categorias ativas e itens disponíveis de categoria ativa (404 no resto); desativar categoria não cascateia
+- [x] Schemas Zod de categorias e itens; rotas `/api/categorias` e `/api/itens-menu`
+- [x] Seed: 5 categorias (1 inativa) + 9 itens (1 indisponível), reexecutável
+- [x] Coleção Postman `backend/postman/Get-Order-Cardapio.postman_collection.json`
+- [x] Frontend cliente: seção Cardápio (leitura)
+- [x] Frontend gestão: aba Cardápio (admin edita; funcionário consulta)
+
+---
+
+## Próximas fases (fora da Fase 4)
+
 - [ ] Pedidos: `pedidos` e `pedido_itens`, fluxo de status, garçom e 10%
 - [ ] Financeiro: `compras` e relatórios
-- [ ] Seed de domínio restante (cardápio, pedidos, compras)
-- [ ] Telas de cardápio, pedidos e financeiro nos frontends
+- [ ] Seed de domínio restante (pedidos, compras)
+- [ ] Telas de pedidos e financeiro nos frontends
 
 ---
 

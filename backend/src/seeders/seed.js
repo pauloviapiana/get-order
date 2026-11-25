@@ -1,5 +1,5 @@
 /**
- * Seed de demonstração — Fase 2 (usuários) + Fase 3 (mesas e reservas).
+ * Seed de demonstração — Fase 2 (usuários) + Fase 3 (mesas e reservas) + Fase 4 (cardápio).
  *
  * Uso (dentro de backend/, depois de `npx sequelize-cli db:migrate`):
  *   npm run seed
@@ -9,10 +9,12 @@
  * - mesas: chave identificacao
  * - reservas: chave cliente + mesa + observacoes (texto fixo "[seed] ..."),
  *   então datas calculadas na 1ª execução são mantidas nas seguintes.
+ * - categorias do cardápio: chave nome
+ * - itens do cardápio: chave categoria + nome
  */
 import bcrypt from 'bcrypt';
 import { Op } from 'sequelize';
-import { Mesa, Reserva, sequelize, Usuario } from '../models/index.js';
+import { CategoriaMenu, ItemMenu, Mesa, Reserva, sequelize, Usuario } from '../models/index.js';
 import { agoraNoRestaurante, STATUS_QUE_BLOQUEIAM } from '../services/regrasReserva.js';
 
 const SALT_ROUNDS = 10;
@@ -63,6 +65,26 @@ const reservasDemo = [
   { cliente: 'cliente2@getorder.com', mesa: 'M5', dataReserva: () => proximo(SABADO), horario: '20:30', quantidade_pessoas: 6, status: 'confirmada', observacoes: '[seed] Aniversário' },
   { cliente: 'cliente3@getorder.com', mesa: 'M1', dataReserva: () => proximo(DOMINGO), horario: '18:30', quantidade_pessoas: 2, status: 'cancelada', observacoes: '[seed] Cancelada pela cliente' },
   { cliente: 'cliente1@getorder.com', mesa: 'M4', dataReserva: () => somarDias(proximo(SABADO), -7), horario: '21:00', quantidade_pessoas: 4, status: 'concluida', observacoes: '[seed] Histórico (sábado passado)' },
+];
+
+const categoriasDemo = [
+  { nome: 'Entradas', ativa: true },
+  { nome: 'Pratos principais', ativa: true },
+  { nome: 'Bebidas', ativa: true },
+  { nome: 'Sobremesas', ativa: true },
+  { nome: 'Especiais de inverno', ativa: false },
+];
+
+const itensDemo = [
+  { categoria: 'Entradas', nome: 'Bruschetta de tomate', descricao: 'Pão italiano, tomate, manjericão e azeite', preco: '24.90', disponivel: true },
+  { categoria: 'Entradas', nome: 'Bolinho de bacalhau', descricao: '6 unidades', preco: '32.00', disponivel: true },
+  { categoria: 'Pratos principais', nome: 'Risoto de cogumelos', descricao: 'Arbóreo, shiitake e parmesão', preco: '58.00', disponivel: true },
+  { categoria: 'Pratos principais', nome: 'Filé à parmegiana', descricao: 'Acompanha arroz e fritas', preco: '64.50', disponivel: true },
+  { categoria: 'Pratos principais', nome: 'Moqueca de peixe', descricao: 'Serve 2 pessoas', preco: '119.90', disponivel: false },
+  { categoria: 'Bebidas', nome: 'Suco natural de laranja', descricao: null, preco: '12.00', disponivel: true },
+  { categoria: 'Bebidas', nome: 'Água mineral', descricao: '500 ml', preco: '6.00', disponivel: true },
+  { categoria: 'Sobremesas', nome: 'Petit gâteau', descricao: 'Com sorvete de creme', preco: '29.90', disponivel: true },
+  { categoria: 'Especiais de inverno', nome: 'Fondue de queijo', descricao: 'Serve 2 pessoas', preco: '98.00', disponivel: true },
 ];
 
 async function semearUsuarios(t) {
@@ -134,6 +156,33 @@ async function semearReservas(t) {
   }
 }
 
+async function semearCardapio(t) {
+  console.log('Semeando cardápio...');
+  const categoriaPorNome = {};
+
+  for (const dados of categoriasDemo) {
+    const [categoria, criada] = await CategoriaMenu.findOrCreate({
+      where: { nome: dados.nome },
+      defaults: dados,
+      transaction: t,
+    });
+
+    categoriaPorNome[categoria.nome] = categoria;
+    console.log(`  ${criada ? 'criada' : 'já existia'}: categoria ${categoria.nome}${categoria.ativa ? '' : ' (inativa)'}`);
+  }
+
+  for (const { categoria, ...dados } of itensDemo) {
+    const categoriaId = categoriaPorNome[categoria].id;
+    const [item, criado] = await ItemMenu.findOrCreate({
+      where: { categoriaId, nome: dados.nome },
+      defaults: { ...dados, categoriaId },
+      transaction: t,
+    });
+
+    console.log(`  ${criado ? 'criado' : 'já existia'}: ${item.nome} R$ ${item.preco}${item.disponivel ? '' : ' (indisponível)'}`);
+  }
+}
+
 async function seed() {
   try {
     await sequelize.authenticate();
@@ -143,6 +192,7 @@ async function seed() {
       await semearUsuarios(t);
       await semearMesas(t);
       await semearReservas(t);
+      await semearCardapio(t);
     });
 
     console.log(`Seed finalizado. Senha demo de todos: ${SENHA_DEMO}`);

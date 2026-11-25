@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import api from './services/api';
 import { lerUsuario, limparSessao, salvarSessao } from './services/sessao';
 import Cadastro from './components/Cadastro';
+import Cardapio from './components/Cardapio';
 import Login from './components/Login';
 import MinhasReservas from './components/MinhasReservas';
 import NovaReserva from './components/NovaReserva';
@@ -59,7 +60,12 @@ function App() {
           <MinhasReservas versao={versaoReservas} />
         </section>
 
-        <p className="nota">Cardápio e pedidos chegam nas próximas fases.</p>
+        <section>
+          <h2>Cardápio</h2>
+          <Cardapio />
+        </section>
+
+        <p className="nota">Pedidos chegam nas próximas fases.</p>
       </main>
     );
   }

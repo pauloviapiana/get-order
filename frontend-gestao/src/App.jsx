@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import api from './services/api';
 import { lerUsuario, limparSessao, salvarSessao } from './services/sessao';
+import Cardapio from './components/Cardapio';
 import Login from './components/Login';
 import Mesas from './components/Mesas';
 import Reservas from './components/Reservas';
@@ -67,9 +68,10 @@ function App() {
 
       {aba === 'reservas' && <Reservas />}
       {aba === 'mesas' && <Mesas ehAdmin={ehAdmin} />}
+      {aba === 'cardapio' && <Cardapio ehAdmin={ehAdmin} />}
       {aba === 'usuarios' && ehAdmin && <Usuarios />}
 
-      <p className="nota">Cardápio e pedidos chegam nas próximas fases.</p>
+      <p className="nota">Pedidos e financeiro chegam nas próximas fases.</p>
     </main>
   );
 }
@@ -78,6 +80,7 @@ function abasDoPerfil(ehAdmin) {
   const abas = [
     { id: 'reservas', rotulo: 'Reservas' },
     { id: 'mesas', rotulo: 'Mesas' },
+    { id: 'cardapio', rotulo: 'Cardápio' },
   ];
   return ehAdmin ? [...abas, { id: 'usuarios', rotulo: 'Usuários' }] : abas;
 }
