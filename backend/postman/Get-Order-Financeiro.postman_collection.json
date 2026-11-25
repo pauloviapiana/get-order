@@ -1,0 +1,1700 @@
+{
+  "info": {
+    "name": "Get-Order — Financeiro (Fase 6)",
+    "description": "Fase 6: compras (despesas, CRUD só admin) e relatórios — resumo (vendas `pago` − compras) e comissões por garçom.\n\n**Base:** {{baseUrl}} = http://localhost:3001/api\n\n**Como usar**\n1. `cd backend` → `npx sequelize-cli db:migrate` → `npm run seed` → `npm run dev`.\n2. Rode a coleção inteira **em ordem** (Runner) ou pela CLI:\n   `postman collection run backend/postman/Get-Order-Financeiro.postman_collection.json`.\n3. A pasta 3 soma pedidos pagos (`GET /pedidos?status=pago`) e compras (`GET /compras`) no próprio script e confere o resumo e as comissões contra essas somas (em centavos), com e sem período.\n\nAs compras da execução usam a data fixa `{{dataTeste}}` (2001-03-15, sem pedidos pagos) para isolar o filtro de período, e são excluídas na pasta 5. Reexecutável.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "0. Setup (logins e datas)",
+      "item": [
+        {
+          "name": "Login admin",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const dataSP = (ms) => new Date(ms - 3 * 3600 * 1000).toISOString().slice(0, 10);",
+                  "pm.collectionVariables.set('hoje', dataSP(Date.now()));",
+                  "pm.collectionVariables.set('amanha', dataSP(Date.now() + 24 * 3600 * 1000));",
+                  "pm.collectionVariables.set('sufixo', String(Date.now()));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('tokenAdmin', pm.response.json().token);",
+                  "pm.collectionVariables.set('adminId', pm.response.json().usuario.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@getorder.com\",\n  \"senha\": \"{{senhaDemo}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login funcionario1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('tokenFuncionario', pm.response.json().token);",
+                  "pm.collectionVariables.set('funcionarioId', pm.response.json().usuario.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"funcionario1@getorder.com\",\n  \"senha\": \"{{senhaDemo}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login funcionario2",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('tokenFuncionario2', pm.response.json().token);",
+                  "pm.collectionVariables.set('funcionario2Id', pm.response.json().usuario.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"funcionario2@getorder.com\",\n  \"senha\": \"{{senhaDemo}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login cliente1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('tokenCliente', pm.response.json().token);",
+                  "pm.collectionVariables.set('clienteId', pm.response.json().usuario.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"cliente1@getorder.com\",\n  \"senha\": \"{{senhaDemo}}\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "1. Compras — CRUD admin e validações",
+      "item": [
+        {
+          "name": "Sem token (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/compras"
+          }
+        },
+        {
+          "name": "Admin cria compra (201, registradoPorId do body ignorado)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "const c = pm.response.json();",
+                  "pm.collectionVariables.set('compraId', c.id);",
+                  "pm.test('valor \"123.45\"', () => pm.expect(c.valor).to.eql('123.45'));",
+                  "pm.test('data_compra', () => pm.expect(c.data_compra).to.eql(pm.collectionVariables.get('dataTeste')));",
+                  "pm.test('registradoPorId = admin autenticado', () => pm.expect(c.registradoPorId).to.eql(Number(pm.collectionVariables.get('adminId'))));",
+                  "pm.test('registradoPor incluído', () => pm.expect(c.registradoPor.id).to.eql(c.registradoPorId));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/compras",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"descricao\": \"PM Compra {{sufixo}}\",\n  \"valor\": 123.45,\n  \"data_compra\": \"{{dataTeste}}\",\n  \"fornecedor\": \"Fornecedor PM {{sufixo}}\",\n  \"registradoPorId\": 999999\n}"
+            }
+          }
+        },
+        {
+          "name": "Admin cria compra sem fornecedor (201, valor 0.1 → \"0.10\")",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "const c = pm.response.json();",
+                  "pm.collectionVariables.set('compra2Id', c.id);",
+                  "pm.test('valor \"0.10\"', () => pm.expect(c.valor).to.eql('0.10'));",
+                  "pm.test('fornecedor null', () => pm.expect(c.fornecedor).to.eql(null));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/compras",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"descricao\": \"PM Compra sem fornecedor {{sufixo}}\",\n  \"valor\": 0.1,\n  \"data_compra\": \"{{dataTeste}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Valor negativo (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Formato { erro }', () => pm.expect(pm.response.json()).to.have.property('erro'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/compras",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"descricao\": \"PM inválida\",\n  \"valor\": -1,\n  \"data_compra\": \"2001-03-15\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Valor com 3 casas (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Formato { erro }', () => pm.expect(pm.response.json()).to.have.property('erro'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/compras",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"descricao\": \"PM inválida\",\n  \"valor\": 10.005,\n  \"data_compra\": \"2001-03-15\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Valor como texto (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Formato { erro }', () => pm.expect(pm.response.json()).to.have.property('erro'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/compras",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"descricao\": \"PM inválida\",\n  \"valor\": \"10.00\",\n  \"data_compra\": \"2001-03-15\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Descrição ausente (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Formato { erro }', () => pm.expect(pm.response.json()).to.have.property('erro'));",
+                  "pm.test('detalhe em descricao', () => pm.expect(pm.response.json().detalhes[0].campo).to.eql('descricao'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/compras",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"valor\": 10,\n  \"data_compra\": \"2001-03-15\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Data inexistente (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Formato { erro }', () => pm.expect(pm.response.json()).to.have.property('erro'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/compras",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"descricao\": \"PM inválida\",\n  \"valor\": 10,\n  \"data_compra\": \"2026-02-30\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Data futura (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Formato { erro }', () => pm.expect(pm.response.json()).to.have.property('erro'));",
+                  "pm.test('Mensagem de data futura', () => pm.expect(pm.response.json().erro).to.match(/futura/));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/compras",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"descricao\": \"PM futura\",\n  \"valor\": 10,\n  \"data_compra\": \"{{amanha}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Admin lista compras (200, mais recentes primeiro)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const lista = pm.response.json();",
+                  "pm.test('contém a compra criada', () => pm.expect(lista.map((c) => c.id)).to.include(Number(pm.collectionVariables.get('compraId'))));",
+                  "pm.test('ordenada por data_compra desc', () => { for (let i = 1; i < lista.length; i++) pm.expect(lista[i - 1].data_compra >= lista[i].data_compra).to.be.true; });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              }
+            ],
+            "url": "{{baseUrl}}/compras"
+          }
+        },
+        {
+          "name": "Filtro de/ate na data de teste (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const lista = pm.response.json();",
+                  "const data = pm.collectionVariables.get('dataTeste');",
+                  "pm.test('só a data filtrada', () => lista.forEach((c) => pm.expect(c.data_compra).to.eql(data)));",
+                  "pm.test('inclui as duas compras da execução', () => pm.expect(lista.map((c) => c.id)).to.include.members([Number(pm.collectionVariables.get('compraId')), Number(pm.collectionVariables.get('compra2Id'))]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              }
+            ],
+            "url": "{{baseUrl}}/compras?de={{dataTeste}}&ate={{dataTeste}}"
+          }
+        },
+        {
+          "name": "Filtro q por fornecedor (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const ids = pm.response.json().map((c) => c.id);",
+                  "pm.test('só a compra com esse fornecedor', () => pm.expect(ids).to.eql([Number(pm.collectionVariables.get('compraId'))]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              }
+            ],
+            "url": "{{baseUrl}}/compras?q=Fornecedor PM {{sufixo}}"
+          }
+        },
+        {
+          "name": "Filtro q por descrição (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('acha pela descrição', () => pm.expect(pm.response.json().map((c) => c.id)).to.eql([Number(pm.collectionVariables.get('compra2Id'))]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              }
+            ],
+            "url": "{{baseUrl}}/compras?q=sem fornecedor {{sufixo}}"
+          }
+        },
+        {
+          "name": "Filtro de > ate (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Formato { erro }', () => pm.expect(pm.response.json()).to.have.property('erro'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              }
+            ],
+            "url": "{{baseUrl}}/compras?de=2026-11-20&ate=2026-11-01"
+          }
+        },
+        {
+          "name": "Admin busca por id (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('mesmo id', () => pm.expect(pm.response.json().id).to.eql(Number(pm.collectionVariables.get('compraId'))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              }
+            ],
+            "url": "{{baseUrl}}/compras/{{compraId}}"
+          }
+        },
+        {
+          "name": "Compra inexistente (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 404', () => pm.response.to.have.status(404));",
+                  "pm.test('Formato { erro }', () => pm.expect(pm.response.json()).to.have.property('erro'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              }
+            ],
+            "url": "{{baseUrl}}/compras/999999"
+          }
+        },
+        {
+          "name": "Id inválido (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Formato { erro }', () => pm.expect(pm.response.json()).to.have.property('erro'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              }
+            ],
+            "url": "{{baseUrl}}/compras/abc"
+          }
+        },
+        {
+          "name": "PATCH valor e apaga fornecedor (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const c = pm.response.json();",
+                  "pm.test('valor \"200.00\"', () => pm.expect(c.valor).to.eql('200.00'));",
+                  "pm.test('fornecedor null', () => pm.expect(c.fornecedor).to.eql(null));",
+                  "pm.test('registradoPorId mantido', () => pm.expect(c.registradoPorId).to.eql(Number(pm.collectionVariables.get('adminId'))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/compras/{{compraId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"valor\": 200,\n  \"fornecedor\": \"\"\n}"
+            }
+          }
+        },
+        {
+          "name": "PUT descrição e fornecedor (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('descrição alterada', () => pm.expect(pm.response.json().descricao).to.match(/editada/));",
+                  "pm.test('valor preservado', () => pm.expect(pm.response.json().valor).to.eql('200.00'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/compras/{{compraId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"descricao\": \"PM Compra editada {{sufixo}}\",\n  \"fornecedor\": \"Fornecedor PM {{sufixo}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "PATCH com registradoPorId (400, campo não permitido)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Formato { erro }', () => pm.expect(pm.response.json()).to.have.property('erro'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/compras/{{compraId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"registradoPorId\": 2\n}"
+            }
+          }
+        },
+        {
+          "name": "PATCH vazio (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Formato { erro }', () => pm.expect(pm.response.json()).to.have.property('erro'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/compras/{{compraId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            }
+          }
+        },
+        {
+          "name": "PATCH data futura (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Formato { erro }', () => pm.expect(pm.response.json()).to.have.property('erro'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/compras/{{compraId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"data_compra\": \"{{amanha}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "PATCH inexistente (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 404', () => pm.response.to.have.status(404));",
+                  "pm.test('Formato { erro }', () => pm.expect(pm.response.json()).to.have.property('erro'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/compras/999999",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"valor\": 1\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Compras — RBAC (só admin)",
+      "item": [
+        {
+          "name": "Funcionário lista compras (403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                  "pm.test('Mensagem de perfil', () => pm.expect(pm.response.json().erro).to.match(/Acesso negado/));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenFuncionario}}"
+              }
+            ],
+            "url": "{{baseUrl}}/compras"
+          }
+        },
+        {
+          "name": "Funcionário cria compra (403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                  "pm.test('Mensagem de perfil', () => pm.expect(pm.response.json().erro).to.match(/Acesso negado/));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenFuncionario}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/compras",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"descricao\": \"PM func\",\n  \"valor\": 1,\n  \"data_compra\": \"2001-03-15\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Funcionário edita compra (403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                  "pm.test('Mensagem de perfil', () => pm.expect(pm.response.json().erro).to.match(/Acesso negado/));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenFuncionario}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/compras/{{compraId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"valor\": 1\n}"
+            }
+          }
+        },
+        {
+          "name": "Cliente lista compras (403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                  "pm.test('Mensagem de perfil', () => pm.expect(pm.response.json().erro).to.match(/Acesso negado/));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenCliente}}"
+              }
+            ],
+            "url": "{{baseUrl}}/compras"
+          }
+        },
+        {
+          "name": "Cliente exclui compra (403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                  "pm.test('Mensagem de perfil', () => pm.expect(pm.response.json().erro).to.match(/Acesso negado/));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenCliente}}"
+              }
+            ],
+            "url": "{{baseUrl}}/compras/{{compraId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Resumo financeiro (admin)",
+      "item": [
+        {
+          "name": "Funcionário pede resumo (403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                  "pm.test('Mensagem de perfil', () => pm.expect(pm.response.json().erro).to.match(/Acesso negado/));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenFuncionario}}"
+              }
+            ],
+            "url": "{{baseUrl}}/financeiro/resumo"
+          }
+        },
+        {
+          "name": "Cliente pede resumo (403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                  "pm.test('Mensagem de perfil', () => pm.expect(pm.response.json().erro).to.match(/Acesso negado/));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenCliente}}"
+              }
+            ],
+            "url": "{{baseUrl}}/financeiro/resumo"
+          }
+        },
+        {
+          "name": "Base: pedidos pagos (soma independente)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const centavos = (v) => { const t = String(v); const neg = t.startsWith('-'); const [i, f = ''] = (neg ? t.slice(1) : t).split('.'); const n = Number(i) * 100 + Number(f.padEnd(2, '0').slice(0, 2)); return neg ? -n : n; };",
+                  "const dataSP = (ms) => new Date(ms - 3 * 3600 * 1000).toISOString().slice(0, 10);",
+                  "const pagos = pm.response.json();",
+                  "const hoje = pm.collectionVariables.get('hoje');",
+                  "const deHoje = pagos.filter((p) => dataSP(new Date(p.pago_em).getTime()) === hoje);",
+                  "const porGarcom = {};",
+                  "pagos.forEach((p) => { porGarcom[p.garcomId] = (porGarcom[p.garcomId] || 0) + centavos(p.valor_comissao); });",
+                  "pm.collectionVariables.set('vendasQtd', pagos.length);",
+                  "pm.collectionVariables.set('vendasCentavos', pagos.reduce((s, p) => s + centavos(p.valor_total), 0));",
+                  "pm.collectionVariables.set('comissaoCentavos', pagos.reduce((s, p) => s + centavos(p.valor_comissao), 0));",
+                  "pm.collectionVariables.set('vendasHojeQtd', deHoje.length);",
+                  "pm.collectionVariables.set('vendasHojeCentavos', deHoje.reduce((s, p) => s + centavos(p.valor_total), 0));",
+                  "pm.collectionVariables.set('comissaoPorGarcom', JSON.stringify(porGarcom));",
+                  "pm.test('todos pagos têm garçom, comissão e pago_em', () => pagos.forEach((p) => { pm.expect(p.garcomId).to.be.a('number'); pm.expect(p.valor_comissao).to.be.a('string'); pm.expect(p.pago_em).to.be.a('string'); }));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos?status=pago"
+          }
+        },
+        {
+          "name": "Base: todas as compras",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const centavos = (v) => { const t = String(v); const neg = t.startsWith('-'); const [i, f = ''] = (neg ? t.slice(1) : t).split('.'); const n = Number(i) * 100 + Number(f.padEnd(2, '0').slice(0, 2)); return neg ? -n : n; };",
+                  "const hoje = pm.collectionVariables.get('hoje');",
+                  "const lista = pm.response.json();",
+                  "pm.collectionVariables.set('comprasQtd', lista.length);",
+                  "pm.collectionVariables.set('comprasCentavos', lista.reduce((s, c) => s + centavos(c.valor), 0));",
+                  "const deHoje = lista.filter((c) => c.data_compra === hoje);",
+                  "pm.collectionVariables.set('comprasHojeQtd', deHoje.length);",
+                  "pm.collectionVariables.set('comprasHojeCentavos', deHoje.reduce((s, c) => s + centavos(c.valor), 0));",
+                  "const doTeste = lista.filter((c) => c.data_compra === pm.collectionVariables.get('dataTeste'));",
+                  "pm.collectionVariables.set('comprasTesteQtd', doTeste.length);",
+                  "pm.collectionVariables.set('comprasTesteCentavos', doTeste.reduce((s, c) => s + centavos(c.valor), 0));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              }
+            ],
+            "url": "{{baseUrl}}/compras"
+          }
+        },
+        {
+          "name": "Resumo sem período bate com as bases (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const centavos = (v) => { const t = String(v); const neg = t.startsWith('-'); const [i, f = ''] = (neg ? t.slice(1) : t).split('.'); const n = Number(i) * 100 + Number(f.padEnd(2, '0').slice(0, 2)); return neg ? -n : n; };",
+                  "const r = pm.response.json();",
+                  "const v = (k) => Number(pm.collectionVariables.get(k));",
+                  "pm.test('periodo null/null', () => pm.expect(r.periodo).to.eql({ de: null, ate: null }));",
+                  "pm.test('vendas = soma dos pedidos pagos', () => { pm.expect(r.vendas.quantidade_pedidos).to.eql(v('vendasQtd')); pm.expect(centavos(r.vendas.valor_total)).to.eql(v('vendasCentavos')); });",
+                  "pm.test('despesas = soma das compras', () => { pm.expect(r.despesas.quantidade_compras).to.eql(v('comprasQtd')); pm.expect(centavos(r.despesas.valor_total)).to.eql(v('comprasCentavos')); });",
+                  "pm.test('comissao_total = soma de valor_comissao', () => pm.expect(centavos(r.comissao_total)).to.eql(v('comissaoCentavos')));",
+                  "pm.test('resultado = vendas − despesas', () => pm.expect(centavos(r.resultado)).to.eql(centavos(r.vendas.valor_total) - centavos(r.despesas.valor_total)));",
+                  "pm.collectionVariables.set('resumoComissao', r.comissao_total);",
+                  "pm.test('r.vendas.valor_total é string com 2 casas', () => pm.expect(r.vendas.valor_total).to.match(/^-?\\d+\\.\\d{2}$/));",
+                  "pm.test('r.despesas.valor_total é string com 2 casas', () => pm.expect(r.despesas.valor_total).to.match(/^-?\\d+\\.\\d{2}$/));",
+                  "pm.test('r.comissao_total é string com 2 casas', () => pm.expect(r.comissao_total).to.match(/^-?\\d+\\.\\d{2}$/));",
+                  "pm.test('r.resultado é string com 2 casas', () => pm.expect(r.resultado).to.match(/^-?\\d+\\.\\d{2}$/));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              }
+            ],
+            "url": "{{baseUrl}}/financeiro/resumo"
+          }
+        },
+        {
+          "name": "Resumo de hoje (pago_em no fuso SP) bate com as bases (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const centavos = (v) => { const t = String(v); const neg = t.startsWith('-'); const [i, f = ''] = (neg ? t.slice(1) : t).split('.'); const n = Number(i) * 100 + Number(f.padEnd(2, '0').slice(0, 2)); return neg ? -n : n; };",
+                  "const r = pm.response.json();",
+                  "const v = (k) => Number(pm.collectionVariables.get(k));",
+                  "pm.test('vendas pagas hoje', () => { pm.expect(r.vendas.quantidade_pedidos).to.eql(v('vendasHojeQtd')); pm.expect(centavos(r.vendas.valor_total)).to.eql(v('vendasHojeCentavos')); });",
+                  "pm.test('compras de hoje', () => { pm.expect(r.despesas.quantidade_compras).to.eql(v('comprasHojeQtd')); pm.expect(centavos(r.despesas.valor_total)).to.eql(v('comprasHojeCentavos')); });",
+                  "pm.test('resultado = vendas − despesas', () => pm.expect(centavos(r.resultado)).to.eql(centavos(r.vendas.valor_total) - centavos(r.despesas.valor_total)));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              }
+            ],
+            "url": "{{baseUrl}}/financeiro/resumo?de={{hoje}}&ate={{hoje}}"
+          }
+        },
+        {
+          "name": "Resumo na data de teste (sem vendas, resultado negativo)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const centavos = (v) => { const t = String(v); const neg = t.startsWith('-'); const [i, f = ''] = (neg ? t.slice(1) : t).split('.'); const n = Number(i) * 100 + Number(f.padEnd(2, '0').slice(0, 2)); return neg ? -n : n; };",
+                  "const deCentavos = (c) => `${c < 0 ? '-' : ''}${Math.floor(Math.abs(c) / 100)}.${String(Math.abs(c) % 100).padStart(2, '0')}`;",
+                  "const r = pm.response.json();",
+                  "const despesas = Number(pm.collectionVariables.get('comprasTesteCentavos'));",
+                  "pm.test('periodo ecoado', () => pm.expect(r.periodo).to.eql({ de: pm.collectionVariables.get('dataTeste'), ate: pm.collectionVariables.get('dataTeste') }));",
+                  "pm.test('sem vendas em 2001', () => pm.expect(r.vendas).to.eql({ quantidade_pedidos: 0, valor_total: '0.00' }));",
+                  "pm.test('despesas do dia (inclui as compras editadas: 200.00 + 0.10)', () => { pm.expect(centavos(r.despesas.valor_total)).to.eql(despesas); pm.expect(despesas).to.be.at.least(20010); });",
+                  "pm.test('comissão zero', () => pm.expect(r.comissao_total).to.eql('0.00'));",
+                  "pm.test('resultado negativo formatado', () => pm.expect(r.resultado).to.eql(deCentavos(-despesas)));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              }
+            ],
+            "url": "{{baseUrl}}/financeiro/resumo?de={{dataTeste}}&ate={{dataTeste}}"
+          }
+        },
+        {
+          "name": "Resumo só com \"de\" (200, ate null)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('ate null', () => pm.expect(pm.response.json().periodo.ate).to.eql(null));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              }
+            ],
+            "url": "{{baseUrl}}/financeiro/resumo?de={{dataTeste}}"
+          }
+        },
+        {
+          "name": "Resumo com de > ate (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Formato { erro }', () => pm.expect(pm.response.json()).to.have.property('erro'));",
+                  "pm.test('mensagem de período', () => pm.expect(pm.response.json().detalhes[0].mensagem).to.match(/Período inválido/));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              }
+            ],
+            "url": "{{baseUrl}}/financeiro/resumo?de=2026-11-20&ate=2026-11-01"
+          }
+        },
+        {
+          "name": "Resumo com data inválida (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Formato { erro }', () => pm.expect(pm.response.json()).to.have.property('erro'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              }
+            ],
+            "url": "{{baseUrl}}/financeiro/resumo?de=20-11-2026"
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Comissões por garçom",
+      "item": [
+        {
+          "name": "Admin vê comissões de todos (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const porGarcom = JSON.parse(pm.collectionVariables.get('comissaoPorGarcom'));",
+                  "const centavos = (v) => { const t = String(v); const neg = t.startsWith('-'); const [i, f = ''] = (neg ? t.slice(1) : t).split('.'); const n = Number(i) * 100 + Number(f.padEnd(2, '0').slice(0, 2)); return neg ? -n : n; };",
+                  "const r = pm.response.json();",
+                  "pm.test('um item por garçom com pedido pago', () => pm.expect(r.itens.map((i) => String(i.garcomId)).sort()).to.eql(Object.keys(porGarcom).sort()));",
+                  "pm.test('comissão de cada garçom = soma dos pedidos pagos dele', () => r.itens.forEach((i) => pm.expect(centavos(i.comissao_total)).to.eql(porGarcom[i.garcomId])));",
+                  "pm.test('total = comissao_total do resumo', () => pm.expect(r.total.comissao_total).to.eql(pm.collectionVariables.get('resumoComissao')));",
+                  "pm.test('campos do item', () => r.itens.forEach((i) => pm.expect(i).to.have.all.keys('garcomId', 'nome', 'quantidade_pedidos', 'valor_vendas', 'comissao_total')));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              }
+            ],
+            "url": "{{baseUrl}}/financeiro/comissoes"
+          }
+        },
+        {
+          "name": "Funcionário1 vê só as próprias (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const porGarcom = JSON.parse(pm.collectionVariables.get('comissaoPorGarcom'));",
+                  "const centavos = (v) => { const t = String(v); const neg = t.startsWith('-'); const [i, f = ''] = (neg ? t.slice(1) : t).split('.'); const n = Number(i) * 100 + Number(f.padEnd(2, '0').slice(0, 2)); return neg ? -n : n; };",
+                  "const r = pm.response.json();",
+                  "const id = Number(pm.collectionVariables.get('funcionarioId'));",
+                  "pm.test('só garcomId = self', () => r.itens.forEach((i) => pm.expect(i.garcomId).to.eql(id)));",
+                  "pm.test('no máximo 1 linha', () => pm.expect(r.itens.length).to.be.at.most(1));",
+                  "pm.test('valor bate com os pedidos pagos dele', () => pm.expect(centavos(r.total.comissao_total)).to.eql(porGarcom[id] || 0));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenFuncionario}}"
+              }
+            ],
+            "url": "{{baseUrl}}/financeiro/comissoes"
+          }
+        },
+        {
+          "name": "Funcionário2 vê só as próprias (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const porGarcom = JSON.parse(pm.collectionVariables.get('comissaoPorGarcom'));",
+                  "const centavos = (v) => { const t = String(v); const neg = t.startsWith('-'); const [i, f = ''] = (neg ? t.slice(1) : t).split('.'); const n = Number(i) * 100 + Number(f.padEnd(2, '0').slice(0, 2)); return neg ? -n : n; };",
+                  "const r = pm.response.json();",
+                  "const id = Number(pm.collectionVariables.get('funcionario2Id'));",
+                  "pm.test('só garcomId = self', () => r.itens.forEach((i) => pm.expect(i.garcomId).to.eql(id)));",
+                  "pm.test('valor bate com os pedidos pagos dele', () => pm.expect(centavos(r.total.comissao_total)).to.eql(porGarcom[id] || 0));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenFuncionario2}}"
+              }
+            ],
+            "url": "{{baseUrl}}/financeiro/comissoes"
+          }
+        },
+        {
+          "name": "Cliente pede comissões (403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                  "pm.test('Mensagem de perfil', () => pm.expect(pm.response.json().erro).to.match(/Acesso negado/));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenCliente}}"
+              }
+            ],
+            "url": "{{baseUrl}}/financeiro/comissoes"
+          }
+        },
+        {
+          "name": "Comissões em período sem pagamentos (200, vazio)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const r = pm.response.json();",
+                  "pm.test('itens vazio', () => pm.expect(r.itens).to.eql([]));",
+                  "pm.test('total zerado', () => pm.expect(r.total).to.eql({ quantidade_pedidos: 0, comissao_total: '0.00' }));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              }
+            ],
+            "url": "{{baseUrl}}/financeiro/comissoes?de={{dataTeste}}&ate={{dataTeste}}"
+          }
+        },
+        {
+          "name": "Comissões com de > ate (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Formato { erro }', () => pm.expect(pm.response.json()).to.have.property('erro'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenFuncionario}}"
+              }
+            ],
+            "url": "{{baseUrl}}/financeiro/comissoes?de=2026-11-20&ate=2026-11-01"
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Exclusão e limpeza",
+      "item": [
+        {
+          "name": "Admin exclui compra (204)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              }
+            ],
+            "url": "{{baseUrl}}/compras/{{compraId}}"
+          }
+        },
+        {
+          "name": "Compra excluída não existe mais (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 404', () => pm.response.to.have.status(404));",
+                  "pm.test('Formato { erro }', () => pm.expect(pm.response.json()).to.have.property('erro'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              }
+            ],
+            "url": "{{baseUrl}}/compras/{{compraId}}"
+          }
+        },
+        {
+          "name": "Excluir de novo (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 404', () => pm.response.to.have.status(404));",
+                  "pm.test('Formato { erro }', () => pm.expect(pm.response.json()).to.have.property('erro'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              }
+            ],
+            "url": "{{baseUrl}}/compras/{{compraId}}"
+          }
+        },
+        {
+          "name": "Admin exclui a segunda compra (204)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              }
+            ],
+            "url": "{{baseUrl}}/compras/{{compra2Id}}"
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3001/api"
+    },
+    {
+      "key": "senhaDemo",
+      "value": "123456"
+    },
+    {
+      "key": "dataTeste",
+      "value": "2001-03-15"
+    },
+    {
+      "key": "hoje",
+      "value": ""
+    },
+    {
+      "key": "amanha",
+      "value": ""
+    },
+    {
+      "key": "sufixo",
+      "value": ""
+    },
+    {
+      "key": "tokenAdmin",
+      "value": ""
+    },
+    {
+      "key": "adminId",
+      "value": ""
+    },
+    {
+      "key": "tokenFuncionario",
+      "value": ""
+    },
+    {
+      "key": "funcionarioId",
+      "value": ""
+    },
+    {
+      "key": "tokenFuncionario2",
+      "value": ""
+    },
+    {
+      "key": "funcionario2Id",
+      "value": ""
+    },
+    {
+      "key": "tokenCliente",
+      "value": ""
+    },
+    {
+      "key": "clienteId",
+      "value": ""
+    },
+    {
+      "key": "compraId",
+      "value": ""
+    },
+    {
+      "key": "compra2Id",
+      "value": ""
+    },
+    {
+      "key": "vendasQtd",
+      "value": ""
+    },
+    {
+      "key": "vendasCentavos",
+      "value": ""
+    },
+    {
+      "key": "comissaoCentavos",
+      "value": ""
+    },
+    {
+      "key": "vendasHojeQtd",
+      "value": ""
+    },
+    {
+      "key": "vendasHojeCentavos",
+      "value": ""
+    },
+    {
+      "key": "comissaoPorGarcom",
+      "value": ""
+    },
+    {
+      "key": "comprasQtd",
+      "value": ""
+    },
+    {
+      "key": "comprasCentavos",
+      "value": ""
+    },
+    {
+      "key": "comprasHojeQtd",
+      "value": ""
+    },
+    {
+      "key": "comprasHojeCentavos",
+      "value": ""
+    },
+    {
+      "key": "comprasTesteQtd",
+      "value": ""
+    },
+    {
+      "key": "comprasTesteCentavos",
+      "value": ""
+    },
+    {
+      "key": "resumoComissao",
+      "value": ""
+    }
+  ],
+  "auth": {
+    "type": "noauth"
+  }
+}

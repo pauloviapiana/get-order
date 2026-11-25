@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import api from './services/api';
 import { lerUsuario, limparSessao, salvarSessao } from './services/sessao';
 import Cardapio from './components/Cardapio';
+import Compras from './components/Compras';
+import Financeiro from './components/Financeiro';
 import Login from './components/Login';
 import Mesas from './components/Mesas';
 import Pedidos from './components/Pedidos';
@@ -71,9 +73,9 @@ function App() {
       {aba === 'pedidos' && <Pedidos ehAdmin={ehAdmin} />}
       {aba === 'mesas' && <Mesas ehAdmin={ehAdmin} />}
       {aba === 'cardapio' && <Cardapio ehAdmin={ehAdmin} />}
+      {aba === 'compras' && ehAdmin && <Compras />}
+      {aba === 'financeiro' && <Financeiro ehAdmin={ehAdmin} />}
       {aba === 'usuarios' && ehAdmin && <Usuarios />}
-
-      <p className="nota">Compras e relatório financeiro chegam na próxima fase.</p>
     </main>
   );
 }
@@ -85,7 +87,13 @@ function abasDoPerfil(ehAdmin) {
     { id: 'mesas', rotulo: 'Mesas' },
     { id: 'cardapio', rotulo: 'Cardápio' },
   ];
-  return ehAdmin ? [...abas, { id: 'usuarios', rotulo: 'Usuários' }] : abas;
+  if (!ehAdmin) return [...abas, { id: 'financeiro', rotulo: 'Minhas comissões' }];
+  return [
+    ...abas,
+    { id: 'compras', rotulo: 'Compras' },
+    { id: 'financeiro', rotulo: 'Financeiro' },
+    { id: 'usuarios', rotulo: 'Usuários' },
+  ];
 }
 
 export default App;

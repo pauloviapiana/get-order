@@ -1,5 +1,6 @@
 import sequelize from '../config/database.js';
 import CategoriaMenu from './CategoriaMenu.js';
+import Compra from './Compra.js';
 import ItemMenu from './ItemMenu.js';
 import Mesa from './Mesa.js';
 import Pedido from './Pedido.js';
@@ -27,6 +28,7 @@ PedidoItem.belongsTo(Pedido, { foreignKey: 'pedidoId', as: 'pedido' });
 ItemMenu.hasMany(PedidoItem, { foreignKey: 'itemMenuId', as: 'pedidoItens' });
 PedidoItem.belongsTo(ItemMenu, { foreignKey: 'itemMenuId', as: 'item' });
 
-// Compras (financeiro) entram na Fase 6.
+Usuario.hasMany(Compra, { foreignKey: 'registradoPorId', as: 'comprasRegistradas' });
+Compra.belongsTo(Usuario, { foreignKey: 'registradoPorId', as: 'registradoPor' });
 
-export { sequelize, CategoriaMenu, ItemMenu, Mesa, Pedido, PedidoItem, Reserva, Usuario };
+export { sequelize, CategoriaMenu, Compra, ItemMenu, Mesa, Pedido, PedidoItem, Reserva, Usuario };

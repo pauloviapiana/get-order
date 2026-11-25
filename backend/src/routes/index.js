@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import authRoutes from './authRoutes.js';
 import categoriasRoutes from './categoriasRoutes.js';
+import comprasRoutes from './comprasRoutes.js';
+import financeiroRoutes from './financeiroRoutes.js';
 import itensMenuRoutes from './itensMenuRoutes.js';
 import mesasRoutes from './mesasRoutes.js';
 import pedidosRoutes from './pedidosRoutes.js';
@@ -20,5 +22,7 @@ router.use('/reservas', reservasRoutes);
 router.use('/categorias', categoriasRoutes);
 router.use('/itens-menu', itensMenuRoutes);
 router.use('/pedidos', pedidosRoutes);
+router.use('/compras', comprasRoutes);
+router.use('/financeiro', financeiroRoutes);
 
 export default router;

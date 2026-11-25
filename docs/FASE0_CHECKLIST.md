@@ -1,4 +1,4 @@
-# Checklist — Fase 0 (Planejamento) + Fase 1 (Scaffold) + Fase 2 (Auth) + Fase 3 (Mesas e reservas) + Fase 4 (Cardápio) + Fase 5 (Pedidos)
+# Checklist — Fase 0 (Planejamento) + Fase 1 (Scaffold) + Fase 2 (Auth) + Fase 3 (Mesas e reservas) + Fase 4 (Cardápio) + Fase 5 (Pedidos) + Fase 6 (Financeiro)
 
 Marcado = fechado nesta fase.
 
@@ -110,11 +110,27 @@ Detalhe: [`FASE5_PEDIDOS.md`](FASE5_PEDIDOS.md).
 
 ---
 
-## Próximas fases (fora da Fase 5)
+## Fase 6 — financeiro (concluído)
 
-- [ ] Financeiro: `compras` (migration 08), CRUD admin e relatórios (vendas − compras, comissões por garçom)
-- [ ] Seed de `compras`
-- [ ] Telas de compras e financeiro nos frontends
+Detalhe: [`FASE6_FINANCEIRO.md`](FASE6_FINANCEIRO.md).
+
+- [x] Migration + model `compras` (08 de `MODELO_DADOS.md`), FK `registradoPorId` `RESTRICT`, CHECK `valor >= 0`, índices `data_compra` / `registradoPorId`, associação `registradoPor`
+- [x] `compraService`: CRUD só admin, `registradoPorId` = admin autenticado, data não futura, filtros `de`/`ate`/`q`, DELETE físico
+- [x] `financeiroService`: resumo (vendas `pago` − compras; comissão informativa, fora do resultado) e comissões por garçom (admin todos; funcionário só as próprias)
+- [x] Período inclusivo e opcional: pedidos pela data de `pago_em` em `America/Sao_Paulo`, compras por `data_compra`; `de <= ate`
+- [x] Dinheiro em string com 2 casas; diferenças em centavos (`dinheiro.js` agora aceita negativos)
+- [x] Schemas Zod de compras e período; rotas `/api/compras` e `/api/financeiro`
+- [x] Seed: 4 compras ligadas ao admin, reexecutável
+- [x] Coleção Postman `backend/postman/Get-Order-Financeiro.postman_collection.json` (resumo conferido contra somas independentes)
+- [x] Frontend gestão: abas Compras (admin) e Financeiro (admin: resumo + comissões; funcionário: "Minhas comissões"), filtro de período
+- [x] Frontend cliente: sem compras/financeiro (por decisão)
+
+---
+
+## Próxima fase — Fase 7 (erros / CORS / docs API consolidados)
+
+- [ ] Consolidar tratamento de erros (FK/CHECK do banco → 400/409) e revisar CORS
+- [ ] Documentação de API consolidada (hoje espalhada em `FASE2…FASE6`)
 
 ---
 

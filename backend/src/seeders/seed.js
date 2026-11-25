@@ -1,6 +1,6 @@
 /**
  * Seed de demonstração — Fase 2 (usuários) + Fase 3 (mesas e reservas) + Fase 4 (cardápio)
- * + Fase 5 (pedidos).
+ * + Fase 5 (pedidos) + Fase 6 (compras).
  *
  * Uso (dentro de backend/, depois de `npx sequelize-cli db:migrate`):
  *   npm run seed
@@ -14,11 +14,14 @@
  * - itens do cardápio: chave categoria + nome
  * - pedidos: chave cliente + reserva seed vinculada (ou cliente sem reserva, para Carla);
  *   itens com preço snapshot do cardápio na 1ª execução
+ * - compras: chave admin + descricao (texto fixo "[seed] ..."); data relativa a hoje
+ *   calculada só na 1ª execução
  */
 import bcrypt from 'bcrypt';
 import { Op } from 'sequelize';
 import {
   CategoriaMenu,
+  Compra,
   ItemMenu,
   Mesa,
   Pedido,
@@ -130,6 +133,14 @@ const pedidosDemo = [
     garcom: 'funcionario2@getorder.com',
     itens: [['Bolinho de bacalhau', 1], ['Petit gâteau', 2]],
   },
+];
+
+// `diasAtras` é avaliado só quando a compra ainda não existe
+const comprasDemo = [
+  { descricao: '[seed] Caixa de tomate italiano (20 kg)', valor: '85.50', diasAtras: 1, fornecedor: 'Hortifruti Central' },
+  { descricao: '[seed] Carnes para a semana (filé e frango)', valor: '420.00', diasAtras: 3, fornecedor: 'Frigorífico Boa Carne' },
+  { descricao: '[seed] Bebidas (água, laranja para suco)', valor: '189.90', diasAtras: 5, fornecedor: 'Distribuidora Rio Claro' },
+  { descricao: '[seed] Botijão de gás P45', valor: '130.00', diasAtras: 12, fornecedor: null },
 ];
 
 async function semearUsuarios(t) {
@@ -297,6 +308,22 @@ async function semearPedidos(t) {
   }
 }
 
+async function semearCompras(t) {
+  console.log('Semeando compras...');
+  const admin = await Usuario.findOne({ where: { email: 'admin@getorder.com' }, transaction: t });
+  const hoje = agoraNoRestaurante().data;
+
+  for (const { diasAtras, ...dados } of comprasDemo) {
+    const [compra, criada] = await Compra.findOrCreate({
+      where: { registradoPorId: admin.id, descricao: dados.descricao },
+      defaults: { ...dados, registradoPorId: admin.id, data_compra: somarDias(hoje, -diasAtras) },
+      transaction: t,
+    });
+
+    console.log(`  ${criada ? 'criada' : 'já existia'}: #${compra.id} ${compra.data_compra} R$ ${compra.valor} ${compra.descricao}`);
+  }
+}
+
 async function seed() {
   try {
     await sequelize.authenticate();
@@ -308,6 +335,7 @@ async function seed() {
       await semearReservas(t);
       await semearCardapio(t);
       await semearPedidos(t);
+      await semearCompras(t);
     });
 
     console.log(`Seed finalizado. Senha demo de todos: ${SENHA_DEMO}`);

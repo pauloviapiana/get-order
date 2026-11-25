@@ -148,6 +148,41 @@ button:disabled {
   margin-bottom: 1rem;
 }
 
+.cartoes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.cartao {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 1rem;
+  background: #fff;
+  border: 1px solid #d3dde2;
+  border-radius: 6px;
+}
+
+.cartao strong {
+  font-size: 1.35rem;
+}
+
+.cartao small {
+  color: #555;
+}
+
+.negativo {
+  color: #a11d1d;
+}
+
+.filtros label {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
 .filtros input,
 .filtros select {
   font: inherit;
