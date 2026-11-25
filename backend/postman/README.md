@@ -32,4 +32,4 @@ A coleção-índice só lê o seed (e-mail, mesa `M1`, categoria `Entradas`) e n
 postman collection run backend/postman/Get-Order-API.postman_collection.json
 ```
 
-Inventário das rotas: `docs/DOCUMENTACAO.md`. Notas de cada domínio: `docs/FASE2_AUTH.md` … `docs/FASE6_FINANCEIRO.md`.
+Inventário das rotas e regras: [`docs/DOCUMENTACAO.md`](../../docs/DOCUMENTACAO.md).

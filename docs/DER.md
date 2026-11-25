@@ -1,7 +1,7 @@
 # DER — get-order (Restaurante IOT)
 
-**DER** = Diagrama Entidade-Relacionamento das tabelas previstas para o MVP.  
-Fonte de planejamento da Fase 0; na implementação, as **migrations Sequelize** serão a fonte de verdade do schema (como em `web-car-wash`). Detalhe de campos: `docs/MODELO_DADOS.md`. Regras: `docs/FASE0_REGRAS.md`.
+Diagrama entidade-relacionamento alinhado às migrations Sequelize (fonte de verdade do schema).  
+Campos e endpoints: [`DOCUMENTACAO.md`](DOCUMENTACAO.md). SQL didático: [`schema_referencia.sql`](schema_referencia.sql).
 
 ---
 
@@ -17,36 +17,29 @@ Fonte de planejamento da Fase 0; na implementação, as **migrations Sequelize**
 | `categorias_menu` | `itens_menu` | 1 : N | `itens_menu.categoriaId` |
 | `pedidos` | `pedido_itens` | 1 : N | `pedido_itens.pedidoId` |
 | `itens_menu` | `pedido_itens` | 1 : N | `pedido_itens.itemMenuId` |
-| `usuarios` (admin/funcionário) | `compras` | 1 : N | `compras.registradoPorId` |
+| `usuarios` | `compras` | 1 : N | `compras.registradoPorId` |
+| `usuarios` | `refresh_tokens` | 1 : N | `refresh_tokens.usuarioId` |
 
-- Um **usuário** autentica todos os papéis (`admin` | `funcionario` | `cliente`) na mesma tabela.
-- Cliente faz **N** reservas e **N** pedidos.
-- Cada reserva aloca **uma** mesa (`mesaId` obrigatório — abordagem A).
-- Pedido pode ou não ter reserva; garçom é obrigatório só no momento do **pagamento**.
-- `pedido_itens` guarda preço unitário (snapshot) na compra.
-- `compras` = despesas (alimentos/insumos), sem ligação com cardápio no MVP.
+- Um **usuário** autentica todos os papéis (`admin` \| `funcionario` \| `cliente`) na mesma tabela.
+- Cada reserva aloca **uma** mesa (`mesaId` obrigatório).
+- Pedido pode ou não ter reserva; garçom é obrigatório só no **pagamento**.
+- `pedido_itens` guarda preço unitário (snapshot).
+- `compras` = despesas (insumos), sem ligação com cardápio.
+- `refresh_tokens` guarda hash SHA-256 do refresh (nunca o token em claro); `ON DELETE CASCADE` no usuário.
 
 ---
 
-## Regras importantes para apresentar
+## ENUMs, UNIQUE e CHECK
 
-- **UNIQUE:** `usuarios.email`, `mesas.identificacao`, `categorias_menu.nome`
-- **ENUM:**  
-  - `usuarios.perfil` → `admin` \| `funcionario` \| `cliente`  
-  - `reservas.status` → `pendente` \| `confirmada` \| `cancelada` \| `concluida`  
+- **UNIQUE:** `usuarios.email`, `mesas.identificacao`, `categorias_menu.nome`, `refresh_tokens.tokenHash`
+- **ENUM:**
+  - `usuarios.perfil` → `admin` \| `funcionario` \| `cliente`
+  - `reservas.status` → `pendente` \| `confirmada` \| `cancelada` \| `concluida`
   - `pedidos.status` → `aberto` \| `em_preparo` \| `pronto` \| `entregue` \| `pago` \| `cancelado`
-- **CHECK:**  
-  - `mesas.capacidade > 0`  
-  - `reservas.quantidade_pessoas > 0`  
-  - `itens_menu.preco >= 0`  
-  - `pedido_itens.quantidade > 0`  
-  - `pedido_itens.preco_unitario >= 0`  
-  - `pedidos.valor_total >= 0`  
-  - `pedidos.valor_comissao >= 0` (quando preenchido)  
-  - `compras.valor >= 0`
-- **Disponibilidade de mesa:** regra de negócio na API (não UNIQUE simples): bloquear se já houver reserva `pendente`/`confirmada` na mesma mesa + data + horário.
-- **ON DELETE RESTRICT** nas FKs principais (não apagar usuário/mesa/item com filhos). Preferir `ativa`/`disponivel`/`cancelado`.
-- **Comissão 10%:** calculada e gravada em `pedidos.valor_comissao` ao status `pago`.
+- **CHECK:** `mesas.capacidade > 0`; `reservas.quantidade_pessoas > 0`; `itens_menu.preco >= 0`; `pedido_itens` qtd/preço/subtotal ≥ regras; `pedidos.valor_total >= 0`; `pedidos.valor_comissao >= 0`; `compras.valor >= 0`; pedido `pago` exige `garcomId` + `valor_comissao` + `pago_em`
+- **Disponibilidade de mesa:** regra na API (não UNIQUE): bloqueia se já houver `pendente`/`confirmada` na mesma mesa + data + horário
+- **ON DELETE RESTRICT** nas FKs de domínio (preferir `ativa` / `disponivel` / cancelar)
+- **Comissão 10%:** gravada em `pedidos.valor_comissao` ao status `pago`
 
 ---
 
@@ -142,6 +135,16 @@ erDiagram
     datetime updatedAt
   }
 
+  REFRESH_TOKENS {
+    int id PK
+    int usuarioId FK
+    string tokenHash UK "SHA-256 UNIQUE"
+    datetime expiresAt
+    datetime revokedAt "nullable"
+    datetime createdAt
+    datetime updatedAt
+  }
+
   USUARIOS ||--o{ RESERVAS : "cliente faz"
   MESAS ||--o{ RESERVAS : "alocada em"
   USUARIOS ||--o{ PEDIDOS : "cliente pede"
@@ -151,16 +154,12 @@ erDiagram
   PEDIDOS ||--o{ PEDIDO_ITENS : "contem"
   ITENS_MENU ||--o{ PEDIDO_ITENS : "vendido em"
   USUARIOS ||--o{ COMPRAS : "registra"
+  USUARIOS ||--o{ REFRESH_TOKENS : "sessao"
 ```
 
-### Como ler os símbolos
+### Como ler
 
-- `PK` = chave primária (`id`)
-- `FK` = chave estrangeira
-- `UK` = UNIQUE
+- `PK` = chave primária · `FK` = chave estrangeira · `UK` = UNIQUE
 - `||--o{` = **um** para **muitos** (1:N)
 
-## Onde visualizar
-
-- Preview Markdown com Mermaid no VS Code / Cursor / GitHub.
-- Exportar imagem/PDF se a banca pedir artefato visual separado.
+Visualizar no preview Mermaid do Cursor / VS Code / GitHub.

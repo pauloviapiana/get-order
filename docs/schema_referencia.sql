@@ -13,7 +13,7 @@
 --   npm run seed
 --
 -- Este script existe para:
---   - mostrar o modelo em SQL PostgreSQL
+--   - mostrar o modelo em SQL PostgreSQL (9 tabelas: 8 de domínio + refresh_tokens)
 --   - cumprir a entrega didática (≥ 3 registros de exemplo por tabela)
 --   - apoiar a apresentação junto de docs/DOCUMENTACAO.md e docs/DER.md
 --
@@ -30,6 +30,7 @@
 --   6) pedidos           (FK → usuarios, usuarios, reservas)
 --   7) pedido_itens      (FK → pedidos, itens_menu)
 --   8) compras           (FK → usuarios)
+--   9) refresh_tokens    (FK → usuarios; sessão renovável)
 --
 -- Colunas camelCase ("clienteId", "createdAt", …) ficam entre aspas duplas,
 -- como o Sequelize cria no PostgreSQL. Snake_case (data_reserva, valor_total)
@@ -232,18 +233,38 @@ CREATE TABLE "compras" (
 CREATE INDEX "compras_data_compra" ON "compras" ("data_compra");
 CREATE INDEX "compras_registrado_por_id" ON "compras" ("registradoPorId");
 
+-- ---------------------------------------------------------------------------
+-- 9) refresh_tokens
+-- tokenHash = SHA-256 hex (64 chars) do refresh opaco; o valor em claro nunca
+-- fica no banco. Rotação: token antigo recebe revokedAt em /auth/refresh.
+-- ---------------------------------------------------------------------------
+CREATE TABLE "refresh_tokens" (
+  "id" SERIAL PRIMARY KEY,
+  "usuarioId" INTEGER NOT NULL
+    REFERENCES "usuarios" ("id")
+    ON UPDATE CASCADE
+    ON DELETE CASCADE,
+  "tokenHash" VARCHAR(64) NOT NULL UNIQUE,
+  "expiresAt" TIMESTAMP WITH TIME ZONE NOT NULL,
+  "revokedAt" TIMESTAMP WITH TIME ZONE NULL,
+  "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX "refresh_tokens_usuario_id" ON "refresh_tokens" ("usuarioId");
+CREATE INDEX "refresh_tokens_expires_at" ON "refresh_tokens" ("expiresAt");
+
 -- =============================================================================
 -- DADOS DE EXEMPLO (≥ 3 registros por tabela)
 -- =============================================================================
 -- Amostra mínima e legível. O seed Node grava mais linhas (6 usuários, 7 mesas,
 -- 4 reservas, 5 categorias, 9 itens, 4 pedidos, 4 compras) e recalcula datas.
+-- refresh_tokens só nascem no login real; abaixo há 3 hashes fictícios didáticos.
 --
 -- SENHAS (usuarios."senha"):
 --   O banco guarda HASH bcrypt, nunca "123456" em texto puro.
 --   O hash abaixo corresponde à senha de demonstração 123456.
---   O caminho oficial continua sendo `npm run seed`, que gera o hash com bcrypt
---   e não duplica registros. Se os dois rodarem no mesmo banco vazio, o segundo
---   encontra o e-mail/mesa/categoria e não sobrescreve.
+--   O caminho oficial continua sendo `npm run seed`.
 --
 -- Datas de reserva: 2026-11-27 (sexta), 2026-11-28 (sábado), 2026-11-29 (domingo).
 -- IDs 1, 2, 3 abaixo só valem com as tabelas vazias, nesta ordem de INSERT.
@@ -372,3 +393,35 @@ VALUES
   ('[ref] Caixa de tomate italiano (20 kg)', 85.50,  '2026-11-23', 'Hortifruti Central', 1, NOW(), NOW()),
   ('[ref] Carnes para a semana',             420.00, '2026-11-21', 'Frigorífico Boa Carne', 1, NOW(), NOW()),
   ('[ref] Botijão de gás P45',               130.00, '2026-11-12', NULL, 1, NOW(), NOW());
+
+-- ---------------------------------------------------------------------------
+-- refresh_tokens (3) — hashes SHA-256 fictícios (64 hex); não são tokens reais
+-- ---------------------------------------------------------------------------
+INSERT INTO "refresh_tokens" (
+  "usuarioId", "tokenHash", "expiresAt", "revokedAt", "createdAt", "updatedAt"
+)
+VALUES
+  (
+    1,
+    'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    NOW() + INTERVAL '7 days',
+    NULL,
+    NOW(),
+    NOW()
+  ),
+  (
+    2,
+    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    NOW() + INTERVAL '7 days',
+    NULL,
+    NOW(),
+    NOW()
+  ),
+  (
+    3,
+    'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc',
+    NOW() - INTERVAL '1 day',
+    NOW() - INTERVAL '1 day',
+    NOW() - INTERVAL '8 days',
+    NOW() - INTERVAL '1 day'
+  );
