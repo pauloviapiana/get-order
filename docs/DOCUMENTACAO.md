@@ -1,7 +1,7 @@
 # Documentação — get-order
 
 Documentação alinhada ao código do monorepo `get-order`.  
-As notas por fase (`FASE2_AUTH.md` … `FASE6_FINANCEIRO.md`, `FASE7_DOCS_ERROS.md`, `FASE8_FRONTEND_CLIENTE.md`) continuam válidas; este arquivo é o inventário único.
+As notas por fase (`FASE2_AUTH.md` … `FASE6_FINANCEIRO.md`, `FASE7_DOCS_ERROS.md`, `FASE8_FRONTEND_CLIENTE.md`, `FASE9_FRONTEND_GESTAO.md`) continuam válidas; este arquivo é o inventário único.
 
 Artefatos relacionados: [`DER.md`](DER.md), [`MODELO_DADOS.md`](MODELO_DADOS.md), [`MATRIZ_RBAC.md`](MATRIZ_RBAC.md), [`schema_referencia.sql`](schema_referencia.sql), [`FASE0_REGRAS.md`](FASE0_REGRAS.md).
 
@@ -315,9 +315,9 @@ Período `de`/`ate` inclusivo e opcional. Os dois juntos exigem `de <= ate`. Ped
 | App | Porta | Quem entra | O que faz |
 |-----|-------|------------|-----------|
 | `frontend-cliente` | **5173** | só `cliente` (cadastro público); `admin`/`funcionario` são recusados na tela e apontados ao 5174 | Login/cadastro/sair; abas Reservar / Minhas reservas / Cardápio e pedido / Meus pedidos; disponibilidade e reserva; cancelar reserva própria; montar pedido (reserva opcional); cancelar `aberto`; pagar `entregue` (exige garçom na UI). Detalhe: [`FASE8_FRONTEND_CLIENTE.md`](FASE8_FRONTEND_CLIENTE.md) |
-| `frontend-gestao` | **5174** | `admin` e `funcionario` (cliente é recusado na tela) | Reservas, pedidos (garçom e status), mesas e cardápio. Admin: usuários, compras e financeiro. Funcionário: "Minhas comissões" |
+| `frontend-gestao` | **5174** | `admin` e `funcionario` (cliente é recusado na tela e apontado ao 5173) | Reservas, pedidos (garçom e status), mesas e cardápio. Admin: usuários, compras e financeiro. Funcionário: "Minhas comissões". Detalhe: [`FASE9_FRONTEND_GESTAO.md`](FASE9_FRONTEND_GESTAO.md) |
 
-URL da API: `VITE_API_URL` (ex.: `http://localhost:3001/api`) em cada `.env.example`. Erro de API na UI usa `erro` e, se existir, o primeiro item de `detalhes`. JWT em `sessionStorage`; 401 autenticado limpa a sessão no cliente.
+URL da API: `VITE_API_URL` (ex.: `http://localhost:3001/api`) em cada `.env.example`. Erro de API na UI usa `erro` e, se existir, o primeiro item de `detalhes`. JWT em `sessionStorage`; 401 autenticado limpa a sessão nos dois frontends.
 
 ---
 

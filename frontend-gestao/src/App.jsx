@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react';
-import api from './services/api';
-import { lerUsuario, limparSessao, salvarSessao } from './services/sessao';
+import api, { EVENTO_SESSAO_EXPIRADA } from './services/api';
+import {
+  MENSAGEM_PERFIL_CLIENTE,
+  PERFIS_GESTAO,
+  lerUsuario,
+  limparSessao,
+  salvarSessao,
+} from './services/sessao';
 import Cardapio from './components/Cardapio';
 import Compras from './components/Compras';
 import Financeiro from './components/Financeiro';
@@ -10,29 +16,64 @@ import Pedidos from './components/Pedidos';
 import Reservas from './components/Reservas';
 import Usuarios from './components/Usuarios';
 
+// Sessão gravada antes do gate de perfil (ou adulterada) não entra
+function usuarioInicial() {
+  const usuario = lerUsuario();
+  if (usuario && !PERFIS_GESTAO.includes(usuario.perfil)) {
+    limparSessao();
+    return null;
+  }
+  return usuario;
+}
+
 function App() {
-  const [usuario, setUsuario] = useState(lerUsuario);
+  const [usuario, setUsuario] = useState(usuarioInicial);
   const [aba, setAba] = useState('reservas');
+  const [aviso, setAviso] = useState('');
 
   // Token salvo pode ter expirado (30 min): confirma com a API ao abrir
   useEffect(() => {
     if (!sessionStorage.getItem('token')) return;
 
-    api.get('/auth/me').catch(() => {
-      limparSessao();
+    api
+      .get('/auth/me')
+      .then((res) => {
+        if (!PERFIS_GESTAO.includes(res.data.perfil)) {
+          limparSessao();
+          setUsuario(null);
+          setAviso(MENSAGEM_PERFIL_CLIENTE);
+        }
+      })
+      .catch(() => {
+        limparSessao();
+        setUsuario(null);
+      });
+  }, []);
+
+  // Qualquer 401 em requisição autenticada (ver services/api.js) volta para o login
+  useEffect(() => {
+    function expirou() {
       setUsuario(null);
-    });
+      setAba('reservas');
+      setAviso('Sua sessão expirou. Entre novamente.');
+    }
+
+    window.addEventListener(EVENTO_SESSAO_EXPIRADA, expirou);
+    return () => window.removeEventListener(EVENTO_SESSAO_EXPIRADA, expirou);
   }, []);
 
   function entrar(dados) {
     salvarSessao(dados);
     setUsuario(dados.usuario);
+    setAba('reservas');
+    setAviso('');
   }
 
   function sair() {
     limparSessao();
     setUsuario(null);
     setAba('reservas');
+    setAviso('');
   }
 
   if (!usuario) {
@@ -40,6 +81,11 @@ function App() {
       <main className="app">
         <h1>get-order — Gestão</h1>
         <p className="nota">Acesso para administradores e funcionários.</p>
+        {aviso && (
+          <p className="mensagem-erro" role="alert">
+            {aviso}
+          </p>
+        )}
         <Login onLogin={entrar} />
       </main>
     );

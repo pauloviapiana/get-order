@@ -6,20 +6,28 @@ import { mensagemDeErro } from '../services/sessao';
 function Mesas({ ehAdmin }) {
   const [mesas, setMesas] = useState([]);
   const [erro, setErro] = useState('');
+  const [carregando, setCarregando] = useState(true);
+  const [enviando, setEnviando] = useState(false);
   const [nova, setNova] = useState({ identificacao: '', capacidade: 2 });
   const [editando, setEditando] = useState(null);
 
   function carregar() {
+    setCarregando(true);
     api
       .get('/mesas')
-      .then((res) => setMesas(res.data))
-      .catch((error) => setErro(mensagemDeErro(error, 'Falha ao carregar mesas.')));
+      .then((res) => {
+        setMesas(res.data);
+        setErro('');
+      })
+      .catch((error) => setErro(mensagemDeErro(error, 'Falha ao carregar mesas.')))
+      .finally(() => setCarregando(false));
   }
 
   useEffect(carregar, []);
 
   async function executar(acao, padrao) {
     setErro('');
+    setEnviando(true);
     try {
       await acao();
       carregar();
@@ -27,6 +35,8 @@ function Mesas({ ehAdmin }) {
     } catch (error) {
       setErro(mensagemDeErro(error, padrao));
       return false;
+    } finally {
+      setEnviando(false);
     }
   }
 
@@ -66,66 +76,75 @@ function Mesas({ ehAdmin }) {
         </p>
       )}
 
-      <table className="tabela">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Identificação</th>
-            <th>Capacidade</th>
-            <th>Ativa</th>
-            {ehAdmin && <th>Ações</th>}
-          </tr>
-        </thead>
-        <tbody>
-          {mesas.map((m) =>
-            editando?.id === m.id ? (
-              <tr key={m.id}>
-                <td>{m.id}</td>
-                <td>
-                  <input
-                    value={editando.identificacao}
-                    onChange={(e) => setEditando({ ...editando, identificacao: e.target.value })}
-                  />
-                </td>
-                <td>
-                  <input
-                    type="number"
-                    min="1"
-                    value={editando.capacidade}
-                    onChange={(e) => setEditando({ ...editando, capacidade: e.target.value })}
-                  />
-                </td>
-                <td>{m.ativa ? 'sim' : 'não'}</td>
-                <td className="acoes">
-                  <button type="button" onClick={salvarEdicao}>
-                    Salvar
-                  </button>
-                  <button type="button" onClick={() => setEditando(null)}>
-                    Cancelar
-                  </button>
-                </td>
+      {carregando && <p>Carregando mesas…</p>}
+      {!carregando && mesas.length === 0 ? (
+        <p className="nota">Nenhuma mesa cadastrada.</p>
+      ) : (
+        !carregando && (
+          <table className="tabela">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Identificação</th>
+                <th>Capacidade</th>
+                <th>Ativa</th>
+                {ehAdmin && <th>Ações</th>}
               </tr>
-            ) : (
-              <tr key={m.id}>
-                <td>{m.id}</td>
-                <td>{m.identificacao}</td>
-                <td>{m.capacidade}</td>
-                <td>{m.ativa ? 'sim' : 'não'}</td>
-                {ehAdmin && (
-                  <td className="acoes">
-                    <button type="button" onClick={() => setEditando({ ...m })}>
-                      Editar
-                    </button>
-                    <button type="button" onClick={() => alternarAtiva(m)}>
-                      {m.ativa ? 'Desativar' : 'Ativar'}
-                    </button>
-                  </td>
-                )}
-              </tr>
-            )
-          )}
-        </tbody>
-      </table>
+            </thead>
+            <tbody>
+              {mesas.map((m) =>
+                editando?.id === m.id ? (
+                  <tr key={m.id}>
+                    <td>{m.id}</td>
+                    <td>
+                      <input
+                        value={editando.identificacao}
+                        onChange={(e) => setEditando({ ...editando, identificacao: e.target.value })}
+                        disabled={enviando}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        min="1"
+                        value={editando.capacidade}
+                        onChange={(e) => setEditando({ ...editando, capacidade: e.target.value })}
+                        disabled={enviando}
+                      />
+                    </td>
+                    <td>{m.ativa ? 'sim' : 'não'}</td>
+                    <td className="acoes">
+                      <button type="button" onClick={salvarEdicao} disabled={enviando}>
+                        Salvar
+                      </button>
+                      <button type="button" onClick={() => setEditando(null)} disabled={enviando}>
+                        Cancelar
+                      </button>
+                    </td>
+                  </tr>
+                ) : (
+                  <tr key={m.id}>
+                    <td>{m.id}</td>
+                    <td>{m.identificacao}</td>
+                    <td>{m.capacidade}</td>
+                    <td>{m.ativa ? 'sim' : 'não'}</td>
+                    {ehAdmin && (
+                      <td className="acoes">
+                        <button type="button" onClick={() => setEditando({ ...m })} disabled={enviando}>
+                          Editar
+                        </button>
+                        <button type="button" onClick={() => alternarAtiva(m)} disabled={enviando}>
+                          {m.ativa ? 'Desativar' : 'Ativar'}
+                        </button>
+                      </td>
+                    )}
+                  </tr>
+                )
+              )}
+            </tbody>
+          </table>
+        )
+      )}
 
       {ehAdmin && (
         <form className="formulario" onSubmit={criar}>
@@ -135,6 +154,7 @@ function Mesas({ ehAdmin }) {
             id="mesa-ident"
             value={nova.identificacao}
             onChange={(e) => setNova({ ...nova, identificacao: e.target.value })}
+            disabled={enviando}
             required
           />
           <label htmlFor="mesa-cap">Capacidade</label>
@@ -144,9 +164,12 @@ function Mesas({ ehAdmin }) {
             min="1"
             value={nova.capacidade}
             onChange={(e) => setNova({ ...nova, capacidade: e.target.value })}
+            disabled={enviando}
             required
           />
-          <button type="submit">Criar mesa</button>
+          <button type="submit" disabled={enviando}>
+            {enviando ? 'Salvando…' : 'Criar mesa'}
+          </button>
         </form>
       )}
     </div>

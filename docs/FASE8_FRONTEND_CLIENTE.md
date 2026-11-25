@@ -124,5 +124,5 @@ frontend-cliente/src/
 
 ## Próximo
 
-- **Fase 9:** consolidar `frontend-gestao` (se ainda necessário além do entregue nas Fases 2–6).
+- **Fase 9:** consolidar `frontend-gestao` — ver [`FASE9_FRONTEND_GESTAO.md`](FASE9_FRONTEND_GESTAO.md).
 - **Fase 10:** ensaio E2E formal dos dois sites + pacote de entrega.

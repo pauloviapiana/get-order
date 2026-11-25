@@ -18,10 +18,10 @@ Contrato da API e modelo estão em [`docs/`](docs/):
 - [FASE2_AUTH.md](docs/FASE2_AUTH.md) … [FASE6_FINANCEIRO.md](docs/FASE6_FINANCEIRO.md) — notas de cada domínio (mantidas)  
 - [FASE7_DOCS_ERROS.md](docs/FASE7_DOCS_ERROS.md) — erros de banco, CORS e onde está a doc consolidada  
 - [FASE8_FRONTEND_CLIENTE.md](docs/FASE8_FRONTEND_CLIENTE.md) — consolidação do site cliente (5173): abas, gate de perfil, critérios de aceite  
+- [FASE9_FRONTEND_GESTAO.md](docs/FASE9_FRONTEND_GESTAO.md) — consolidação do site gestão (5174): abas por perfil, gate, critérios de aceite  
 
-**Fases 0 a 8 concluídas** (planejamento, scaffold, auth, mesas e reservas, cardápio, pedidos, financeiro, erros/CORS/docs, frontend cliente).  
-A UI de gestão (5174) já existe nas Fases 2–6; a consolidação formal é a Fase 9, se necessária.  
-Próximas: Fase 9 (gestão, se ainda for o caso) e Fase 10 (integração ponta a ponta e pacote de entrega). Fase 11 fica para polimento.
+**Fases 0 a 9 concluídas** (planejamento, scaffold, auth, mesas e reservas, cardápio, pedidos, financeiro, erros/CORS/docs, frontend cliente, frontend gestão).  
+Próxima: Fase 10 (integração ponta a ponta e pacote de entrega). Fase 11 fica para polimento.
 
 ---
 
@@ -114,7 +114,7 @@ npm run dev
 ```
 
 - **Cliente (5173):** só perfil `cliente` (admin/funcionário são recusados e apontados ao 5174); abas Reservar / Minhas reservas / Cardápio e pedido / Meus pedidos; criar conta, entrar e sair; consultar mesas livres, reservar (sex/sáb/dom, 18:00–22:30), cancelar as próprias; montar pedido (reserva opcional), cancelar `aberto` e pagar `entregue` com garçom. Detalhe: [FASE8_FRONTEND_CLIENTE.md](docs/FASE8_FRONTEND_CLIENTE.md).
-- **Gestão (5174):** login de admin/funcionário (cliente é recusado); aba Reservas (filtros, confirmar/concluir/cancelar), aba Pedidos (garçom, fluxo de preparo, pagamento, cancelamento), aba Mesas e aba Cardápio (admin cria/edita/desativa; funcionário consulta); admin vê também Compras (despesas), Financeiro (resumo + comissões) e a lista de usuários; funcionário vê "Minhas comissões".
+- **Gestão (5174):** login de admin/funcionário (cliente é recusado e apontado ao 5173); aba Reservas (filtros, confirmar/concluir/cancelar), aba Pedidos (garçom, fluxo de preparo, pagamento, cancelamento), aba Mesas e aba Cardápio (admin cria/edita/desativa; funcionário consulta); admin vê também Compras (despesas), Financeiro (resumo + comissões) e a lista de usuários; funcionário vê "Minhas comissões". Detalhe: [FASE9_FRONTEND_GESTAO.md](docs/FASE9_FRONTEND_GESTAO.md).
 
 ### Erros e docs (Fase 7)
 

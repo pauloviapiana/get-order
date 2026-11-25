@@ -1,8 +1,6 @@
 import { useState } from 'react';
 import api from '../services/api';
-import { mensagemDeErro } from '../services/sessao';
-
-const PERFIS_GESTAO = ['admin', 'funcionario'];
+import { MENSAGEM_PERFIL_CLIENTE, PERFIS_GESTAO, mensagemDeErro } from '../services/sessao';
 
 /** Só admin/funcionario entram; cliente é recusado antes de gravar a sessão. */
 function Login({ onLogin }) {
@@ -20,7 +18,7 @@ function Login({ onLogin }) {
       const resposta = await api.post('/auth/login', { email, senha });
 
       if (!PERFIS_GESTAO.includes(resposta.data.usuario.perfil)) {
-        setErro('Acesso restrito a administradores e funcionários. Clientes usam o site do cliente.');
+        setErro(MENSAGEM_PERFIL_CLIENTE);
         return;
       }
 

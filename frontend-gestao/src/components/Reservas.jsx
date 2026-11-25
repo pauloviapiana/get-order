@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import api from '../services/api';
+import { formatarData } from '../services/formato';
 import { mensagemDeErro } from '../services/sessao';
 
 const STATUS = ['pendente', 'confirmada', 'cancelada', 'concluida'];
@@ -18,15 +19,15 @@ const ACOES = {
   concluida: [],
 };
 
-const formatarData = (iso) => iso.split('-').reverse().join('/');
-
 /** Todas as reservas (admin/funcionario) com filtros simples e mudança de status. */
 function Reservas() {
   const [reservas, setReservas] = useState([]);
   const [filtros, setFiltros] = useState({ data: '', status: '', cliente: '' });
   const [erro, setErro] = useState('');
+  const [carregando, setCarregando] = useState(true);
 
   function carregar() {
+    setCarregando(true);
     const params = Object.fromEntries(Object.entries(filtros).filter(([, valor]) => valor));
 
     api
@@ -35,7 +36,8 @@ function Reservas() {
         setReservas(res.data);
         setErro('');
       })
-      .catch((error) => setErro(mensagemDeErro(error, 'Falha ao carregar reservas.')));
+      .catch((error) => setErro(mensagemDeErro(error, 'Falha ao carregar reservas.')))
+      .finally(() => setCarregando(false));
   }
 
   useEffect(carregar, []);
@@ -78,7 +80,9 @@ function Reservas() {
           value={filtros.cliente}
           onChange={(e) => setFiltros({ ...filtros, cliente: e.target.value })}
         />
-        <button type="submit">Filtrar</button>
+        <button type="submit" disabled={carregando}>
+          Filtrar
+        </button>
       </form>
 
       {erro && (
@@ -87,45 +91,48 @@ function Reservas() {
         </p>
       )}
 
-      {reservas.length === 0 ? (
+      {carregando && <p>Carregando reservas…</p>}
+      {!carregando && reservas.length === 0 ? (
         <p className="nota">Nenhuma reserva encontrada.</p>
       ) : (
-        <table className="tabela">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Data</th>
-              <th>Horário</th>
-              <th>Mesa</th>
-              <th>Pessoas</th>
-              <th>Cliente</th>
-              <th>Status</th>
-              <th>Observações</th>
-              <th>Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {reservas.map((r) => (
-              <tr key={r.id}>
-                <td>{r.id}</td>
-                <td>{formatarData(r.data_reserva)}</td>
-                <td>{r.horario}</td>
-                <td>{r.mesa?.identificacao}</td>
-                <td>{r.quantidade_pessoas}</td>
-                <td>{r.cliente?.nome}</td>
-                <td>{r.status}</td>
-                <td>{r.observacoes || '—'}</td>
-                <td className="acoes">
-                  {ACOES[r.status].map((acao) => (
-                    <button key={acao.status} type="button" onClick={() => mudarStatus(r, acao.status)}>
-                      {acao.rotulo}
-                    </button>
-                  ))}
-                </td>
+        !carregando && (
+          <table className="tabela">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Data</th>
+                <th>Horário</th>
+                <th>Mesa</th>
+                <th>Pessoas</th>
+                <th>Cliente</th>
+                <th>Status</th>
+                <th>Observações</th>
+                <th>Ações</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {reservas.map((r) => (
+                <tr key={r.id}>
+                  <td>{r.id}</td>
+                  <td>{formatarData(r.data_reserva)}</td>
+                  <td>{r.horario}</td>
+                  <td>{r.mesa?.identificacao}</td>
+                  <td>{r.quantidade_pessoas}</td>
+                  <td>{r.cliente?.nome}</td>
+                  <td>{r.status}</td>
+                  <td>{r.observacoes || '—'}</td>
+                  <td className="acoes">
+                    {ACOES[r.status].map((acao) => (
+                      <button key={acao.status} type="button" onClick={() => mudarStatus(r, acao.status)}>
+                        {acao.rotulo}
+                      </button>
+                    ))}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )
       )}
     </div>
   );

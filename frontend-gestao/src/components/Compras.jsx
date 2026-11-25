@@ -1,11 +1,7 @@
 import { useEffect, useState } from 'react';
 import api from '../services/api';
+import { formatarData, formatarPreco } from '../services/formato';
 import { mensagemDeErro } from '../services/sessao';
-
-// A API devolve `valor` como string decimal ("85.50")
-const formatarPreco = (valor) => Number(valor).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-
-const formatarData = (iso) => iso.split('-').reverse().join('/');
 
 const COMPRA_VAZIA = { descricao: '', valor: '', data_compra: '', fornecedor: '' };
 const FILTROS_VAZIOS = { de: '', ate: '', q: '' };
@@ -18,6 +14,7 @@ function Compras() {
   const [filtros, setFiltros] = useState(FILTROS_VAZIOS);
   const [erro, setErro] = useState('');
   const [carregando, setCarregando] = useState(true);
+  const [enviando, setEnviando] = useState(false);
   const [nova, setNova] = useState(COMPRA_VAZIA);
   const [editando, setEditando] = useState(null);
 
@@ -47,6 +44,7 @@ function Compras() {
 
   async function executar(acao, padrao) {
     setErro('');
+    setEnviando(true);
     try {
       await acao();
       carregar();
@@ -54,6 +52,8 @@ function Compras() {
     } catch (error) {
       setErro(mensagemDeErro(error, padrao));
       return false;
+    } finally {
+      setEnviando(false);
     }
   }
 
@@ -99,8 +99,10 @@ function Compras() {
           onChange={(e) => setFiltros({ ...filtros, q: e.target.value })}
           aria-label="Busca"
         />
-        <button type="submit">Filtrar</button>
-        <button type="button" onClick={limparFiltros}>
+        <button type="submit" disabled={carregando}>
+          Filtrar
+        </button>
+        <button type="button" onClick={limparFiltros} disabled={carregando}>
           Limpar
         </button>
       </form>
@@ -115,86 +117,92 @@ function Compras() {
       {!carregando && compras.length === 0 ? (
         <p className="nota">Nenhuma compra encontrada.</p>
       ) : (
-        <table className="tabela">
-          <thead>
-            <tr>
-              <th>Data</th>
-              <th>Descrição</th>
-              <th>Fornecedor</th>
-              <th>Valor</th>
-              <th>Registrada por</th>
-              <th>Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {compras.map((c) =>
-              editando?.id === c.id ? (
-                <tr key={c.id}>
-                  <td>
-                    <input
-                      type="date"
-                      value={editando.data_compra}
-                      onChange={(e) => setEditando({ ...editando, data_compra: e.target.value })}
-                    />
-                  </td>
-                  <td>
-                    <input
-                      value={editando.descricao}
-                      onChange={(e) => setEditando({ ...editando, descricao: e.target.value })}
-                    />
-                  </td>
-                  <td>
-                    <input
-                      value={editando.fornecedor ?? ''}
-                      onChange={(e) => setEditando({ ...editando, fornecedor: e.target.value })}
-                    />
-                  </td>
-                  <td>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={editando.valor}
-                      onChange={(e) => setEditando({ ...editando, valor: e.target.value })}
-                    />
-                  </td>
-                  <td>{c.registradoPor?.nome}</td>
-                  <td className="acoes">
-                    <button type="button" onClick={salvar}>
-                      Salvar
-                    </button>
-                    <button type="button" onClick={() => setEditando(null)}>
-                      Cancelar
-                    </button>
-                  </td>
-                </tr>
-              ) : (
-                <tr key={c.id}>
-                  <td>{formatarData(c.data_compra)}</td>
-                  <td>{c.descricao}</td>
-                  <td>{c.fornecedor ?? '—'}</td>
-                  <td>{formatarPreco(c.valor)}</td>
-                  <td>{c.registradoPor?.nome}</td>
-                  <td className="acoes">
-                    <button type="button" onClick={() => setEditando({ ...c })}>
-                      Editar
-                    </button>
-                    <button type="button" onClick={() => excluir(c)}>
-                      Excluir
-                    </button>
-                  </td>
-                </tr>
-              )
-            )}
-          </tbody>
-          <tfoot>
-            <tr>
-              <th colSpan={3}>Total listado ({compras.length})</th>
-              <th>{formatarPreco(totalListado)}</th>
-              <th colSpan={2} />
-            </tr>
-          </tfoot>
-        </table>
+        !carregando && (
+          <table className="tabela">
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Descrição</th>
+                <th>Fornecedor</th>
+                <th>Valor</th>
+                <th>Registrada por</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {compras.map((c) =>
+                editando?.id === c.id ? (
+                  <tr key={c.id}>
+                    <td>
+                      <input
+                        type="date"
+                        value={editando.data_compra}
+                        onChange={(e) => setEditando({ ...editando, data_compra: e.target.value })}
+                        disabled={enviando}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        value={editando.descricao}
+                        onChange={(e) => setEditando({ ...editando, descricao: e.target.value })}
+                        disabled={enviando}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        value={editando.fornecedor ?? ''}
+                        onChange={(e) => setEditando({ ...editando, fornecedor: e.target.value })}
+                        disabled={enviando}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={editando.valor}
+                        onChange={(e) => setEditando({ ...editando, valor: e.target.value })}
+                        disabled={enviando}
+                      />
+                    </td>
+                    <td>{c.registradoPor?.nome}</td>
+                    <td className="acoes">
+                      <button type="button" onClick={salvar} disabled={enviando}>
+                        Salvar
+                      </button>
+                      <button type="button" onClick={() => setEditando(null)} disabled={enviando}>
+                        Cancelar
+                      </button>
+                    </td>
+                  </tr>
+                ) : (
+                  <tr key={c.id}>
+                    <td>{formatarData(c.data_compra)}</td>
+                    <td>{c.descricao}</td>
+                    <td>{c.fornecedor ?? '—'}</td>
+                    <td>{formatarPreco(c.valor)}</td>
+                    <td>{c.registradoPor?.nome}</td>
+                    <td className="acoes">
+                      <button type="button" onClick={() => setEditando({ ...c })} disabled={enviando}>
+                        Editar
+                      </button>
+                      <button type="button" onClick={() => excluir(c)} disabled={enviando}>
+                        Excluir
+                      </button>
+                    </td>
+                  </tr>
+                )
+              )}
+            </tbody>
+            <tfoot>
+              <tr>
+                <th colSpan={3}>Total listado ({compras.length})</th>
+                <th>{formatarPreco(totalListado)}</th>
+                <th colSpan={2} />
+              </tr>
+            </tfoot>
+          </table>
+        )
       )}
 
       <form className="formulario" onSubmit={criar}>
@@ -204,6 +212,7 @@ function Compras() {
           id="compra-descricao"
           value={nova.descricao}
           onChange={(e) => setNova({ ...nova, descricao: e.target.value })}
+          disabled={enviando}
           required
         />
         <label htmlFor="compra-valor">Valor (R$)</label>
@@ -214,6 +223,7 @@ function Compras() {
           step="0.01"
           value={nova.valor}
           onChange={(e) => setNova({ ...nova, valor: e.target.value })}
+          disabled={enviando}
           required
         />
         <label htmlFor="compra-data">Data da compra</label>
@@ -222,6 +232,7 @@ function Compras() {
           type="date"
           value={nova.data_compra}
           onChange={(e) => setNova({ ...nova, data_compra: e.target.value })}
+          disabled={enviando}
           required
         />
         <label htmlFor="compra-fornecedor">Fornecedor (opcional)</label>
@@ -229,8 +240,11 @@ function Compras() {
           id="compra-fornecedor"
           value={nova.fornecedor}
           onChange={(e) => setNova({ ...nova, fornecedor: e.target.value })}
+          disabled={enviando}
         />
-        <button type="submit">Registrar compra</button>
+        <button type="submit" disabled={enviando}>
+          {enviando ? 'Salvando…' : 'Registrar compra'}
+        </button>
       </form>
     </div>
   );

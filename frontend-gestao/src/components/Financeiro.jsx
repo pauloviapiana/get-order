@@ -1,9 +1,7 @@
 import { useEffect, useState } from 'react';
 import api from '../services/api';
+import { formatarData, formatarPreco } from '../services/formato';
 import { mensagemDeErro } from '../services/sessao';
-
-// A API devolve valores como string decimal ("12.50"; o resultado pode ser negativo)
-const formatarPreco = (valor) => Number(valor).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 const PERIODO_VAZIO = { de: '', ate: '' };
 
@@ -49,22 +47,35 @@ function Financeiro({ ehAdmin }) {
 
   const descricaoPeriodo = (p) => {
     if (!p.de && !p.ate) return 'todo o histórico';
-    const br = (iso) => iso.split('-').reverse().join('/');
-    if (p.de && p.ate) return `${br(p.de)} a ${br(p.ate)}`;
-    return p.de ? `a partir de ${br(p.de)}` : `até ${br(p.ate)}`;
+    if (p.de && p.ate) return `${formatarData(p.de)} a ${formatarData(p.ate)}`;
+    return p.de ? `a partir de ${formatarData(p.de)}` : `até ${formatarData(p.ate)}`;
   };
 
   return (
     <div>
       <form className="filtros" onSubmit={filtrar}>
         <label>
-          De <input type="date" value={periodo.de} onChange={(e) => setPeriodo({ ...periodo, de: e.target.value })} />
+          De{' '}
+          <input
+            type="date"
+            value={periodo.de}
+            onChange={(e) => setPeriodo({ ...periodo, de: e.target.value })}
+            disabled={carregando}
+          />
         </label>
         <label>
-          Até <input type="date" value={periodo.ate} onChange={(e) => setPeriodo({ ...periodo, ate: e.target.value })} />
+          Até{' '}
+          <input
+            type="date"
+            value={periodo.ate}
+            onChange={(e) => setPeriodo({ ...periodo, ate: e.target.value })}
+            disabled={carregando}
+          />
         </label>
-        <button type="submit">Aplicar período</button>
-        <button type="button" onClick={todoHistorico}>
+        <button type="submit" disabled={carregando}>
+          Aplicar período
+        </button>
+        <button type="button" onClick={todoHistorico} disabled={carregando}>
           Todo o histórico
         </button>
       </form>

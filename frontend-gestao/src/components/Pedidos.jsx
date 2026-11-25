@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import api from '../services/api';
+import { formatarData, formatarPreco } from '../services/formato';
 import { mensagemDeErro } from '../services/sessao';
 
 const STATUS = ['aberto', 'em_preparo', 'pronto', 'entregue', 'pago', 'cancelado'];
@@ -27,11 +28,6 @@ const ACOES = {
   cancelado: [],
 };
 
-// A API devolve valores como string decimal ("12.50")
-const formatarPreco = (preco) => Number(preco).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-
-const formatarData = (iso) => iso.split('-').reverse().join('/');
-
 /** Todos os pedidos (admin/funcionario): filtro por status, garçom e fluxo de status. */
 function Pedidos({ ehAdmin }) {
   const [pedidos, setPedidos] = useState([]);
@@ -41,6 +37,7 @@ function Pedidos({ ehAdmin }) {
   const [carregando, setCarregando] = useState(true);
 
   function carregar() {
+    setCarregando(true);
     api
       .get('/pedidos', { params: status ? { status } : {} })
       .then((res) => {
@@ -96,7 +93,9 @@ function Pedidos({ ehAdmin }) {
             <option key={s}>{s}</option>
           ))}
         </select>
-        <button type="submit">Filtrar</button>
+        <button type="submit" disabled={carregando}>
+          Filtrar
+        </button>
       </form>
 
       {erro && (
@@ -109,72 +108,74 @@ function Pedidos({ ehAdmin }) {
       {!carregando && pedidos.length === 0 ? (
         <p className="nota">Nenhum pedido encontrado.</p>
       ) : (
-        <table className="tabela">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Cliente</th>
-              <th>Itens</th>
-              <th>Total</th>
-              <th>Comissão</th>
-              <th>Reserva</th>
-              <th>Garçom</th>
-              <th>Status</th>
-              <th>Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {pedidos.map((p) => (
-              <tr key={p.id}>
-                <td>{p.id}</td>
-                <td>{p.cliente?.nome}</td>
-                <td>
-                  {p.itens.map((i) => (
-                    <div key={i.id}>
-                      {i.quantidade}× {i.item?.nome}
-                    </div>
-                  ))}
-                </td>
-                <td>{formatarPreco(p.valor_total)}</td>
-                <td>{p.valor_comissao ? formatarPreco(p.valor_comissao) : '—'}</td>
-                <td>
-                  {p.reserva
-                    ? `${formatarData(p.reserva.data_reserva)} ${p.reserva.horario} ${p.reserva.mesa?.identificacao ?? ''}`
-                    : '—'}
-                </td>
-                <td>
-                  {TERMINAIS.includes(p.status) ? (
-                    p.garcom?.nome ?? '—'
-                  ) : (
-                    <select
-                      className="select-garcom"
-                      value={p.garcomId ?? ''}
-                      onChange={(e) => atribuirGarcom(p, e.target.value)}
-                      aria-label={`Garçom do pedido ${p.id}`}
-                    >
-                      <option value="">Sem garçom</option>
-                      {garcons.map((g) => (
-                        <option key={g.id} value={g.id}>
-                          {g.nome}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </td>
-                <td>{p.status}</td>
-                <td className="acoes">
-                  {ACOES[p.status]
-                    .filter((acao) => !acao.soAdmin || ehAdmin)
-                    .map((acao) => (
-                      <button key={acao.status} type="button" onClick={() => mudarStatus(p, acao)}>
-                        {acao.rotulo}
-                      </button>
-                    ))}
-                </td>
+        !carregando && (
+          <table className="tabela">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Cliente</th>
+                <th>Itens</th>
+                <th>Total</th>
+                <th>Comissão</th>
+                <th>Reserva</th>
+                <th>Garçom</th>
+                <th>Status</th>
+                <th>Ações</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {pedidos.map((p) => (
+                <tr key={p.id}>
+                  <td>{p.id}</td>
+                  <td>{p.cliente?.nome}</td>
+                  <td>
+                    {p.itens.map((i) => (
+                      <div key={i.id}>
+                        {i.quantidade}× {i.item?.nome}
+                      </div>
+                    ))}
+                  </td>
+                  <td>{formatarPreco(p.valor_total)}</td>
+                  <td>{p.valor_comissao ? formatarPreco(p.valor_comissao) : '—'}</td>
+                  <td>
+                    {p.reserva
+                      ? `${formatarData(p.reserva.data_reserva)} ${p.reserva.horario} ${p.reserva.mesa?.identificacao ?? ''}`
+                      : '—'}
+                  </td>
+                  <td>
+                    {TERMINAIS.includes(p.status) ? (
+                      p.garcom?.nome ?? '—'
+                    ) : (
+                      <select
+                        className="select-garcom"
+                        value={p.garcomId ?? ''}
+                        onChange={(e) => atribuirGarcom(p, e.target.value)}
+                        aria-label={`Garçom do pedido ${p.id}`}
+                      >
+                        <option value="">Sem garçom</option>
+                        {garcons.map((g) => (
+                          <option key={g.id} value={g.id}>
+                            {g.nome}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </td>
+                  <td>{p.status}</td>
+                  <td className="acoes">
+                    {ACOES[p.status]
+                      .filter((acao) => !acao.soAdmin || ehAdmin)
+                      .map((acao) => (
+                        <button key={acao.status} type="button" onClick={() => mudarStatus(p, acao)}>
+                          {acao.rotulo}
+                        </button>
+                      ))}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )
       )}
     </div>
   );

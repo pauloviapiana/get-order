@@ -1,4 +1,4 @@
-# Checklist — Fase 0 (Planejamento) + Fase 1 (Scaffold) + Fase 2 (Auth) + Fase 3 (Mesas e reservas) + Fase 4 (Cardápio) + Fase 5 (Pedidos) + Fase 6 (Financeiro) + Fase 7 (Erros, CORS e docs) + Fase 8 (Frontend cliente)
+# Checklist — Fase 0 (Planejamento) + Fase 1 (Scaffold) + Fase 2 (Auth) + Fase 3 (Mesas e reservas) + Fase 4 (Cardápio) + Fase 5 (Pedidos) + Fase 6 (Financeiro) + Fase 7 (Erros, CORS e docs) + Fase 8 (Frontend cliente) + Fase 9 (Frontend gestão)
 
 Marcado = fechado nesta fase.
 
@@ -156,10 +156,18 @@ Telas básicas já existiam nas Fases 2–5; esta fase consolidou o site do clie
 
 ---
 
-## Fase 9 — frontend gestão (pendente de consolidação formal)
+## Fase 9 — frontend gestão (concluído)
 
-A UI de gestão (5174) já cobre usuários, mesas, reservas, cardápio, pedidos, compras e financeiro nas Fases 2–6 (incluindo gate que recusa `cliente`).  
-Uma fase espelho da 8 (doc `FASE9_…`, critérios de aceite e polimento de UX) pode ser feita se a banca exigir fechamento explícito.
+Detalhe: [`FASE9_FRONTEND_GESTAO.md`](FASE9_FRONTEND_GESTAO.md).
+
+Telas básicas já existiam nas Fases 2–6; esta fase consolidou o site de gestão (5174) para entrega acadêmica:
+
+- [x] Gate de perfil: só `admin`/`funcionario` gravam sessão; `cliente` é recusado com mensagem apontando o 5173
+- [x] Área autenticada em abas por perfil (Reservas | Pedidos | Mesas | Cardápio | Compras/Financeiro/Usuários admin; Minhas comissões funcionario)
+- [x] Fluxos das Fases 2–6 mantidos: status reserva/pedido, garçom, compras, resumo/comissões; RBAC só na UI (API é a fonte da verdade)
+- [x] UX: loading, erro (`mensagemDeErro`), vazio, disabled em submit; sessão expirada (401) limpa e volta ao login
+- [x] Preços em R$ (`formato.js`); sem React Router / deps novas
+- [x] `docs/FASE9_FRONTEND_GESTAO.md` + checklist/README/DOCUMENTACAO atualizados
 
 ---
 
