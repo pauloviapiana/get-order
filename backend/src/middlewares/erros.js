@@ -29,8 +29,12 @@ export function tratarErros(error, req, res, next) {
     return res.status(400).json({ erro: 'JSON inválido no corpo da requisição' });
   }
 
+  // Corrida entre a checagem do service e o INSERT/UPDATE
   if (error.name === 'SequelizeUniqueConstraintError') {
-    return res.status(409).json({ erro: 'E-mail já cadastrado' });
+    const mensagem = error.fields?.identificacao
+      ? 'Identificação de mesa já cadastrada'
+      : 'E-mail já cadastrado';
+    return res.status(409).json({ erro: mensagem });
   }
 
   console.error(error);

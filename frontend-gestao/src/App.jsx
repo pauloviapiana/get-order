@@ -2,10 +2,13 @@ import { useEffect, useState } from 'react';
 import api from './services/api';
 import { lerUsuario, limparSessao, salvarSessao } from './services/sessao';
 import Login from './components/Login';
+import Mesas from './components/Mesas';
+import Reservas from './components/Reservas';
 import Usuarios from './components/Usuarios';
 
 function App() {
   const [usuario, setUsuario] = useState(lerUsuario);
+  const [aba, setAba] = useState('reservas');
 
   // Token salvo pode ter expirado (30 min): confirma com a API ao abrir
   useEffect(() => {
@@ -25,6 +28,7 @@ function App() {
   function sair() {
     limparSessao();
     setUsuario(null);
+    setAba('reservas');
   }
 
   if (!usuario) {
@@ -36,6 +40,8 @@ function App() {
       </main>
     );
   }
+
+  const ehAdmin = usuario.perfil === 'admin';
 
   return (
     <main className="app app-larga">
@@ -51,16 +57,29 @@ function App() {
         </div>
       </header>
 
-      {usuario.perfil === 'admin' ? (
-        <section>
-          <h2>Usuários</h2>
-          <Usuarios />
-        </section>
-      ) : (
-        <p className="nota">Reservas, pedidos e mesas chegam nas próximas fases.</p>
-      )}
+      <nav className="abas">
+        {abasDoPerfil(ehAdmin).map(({ id, rotulo }) => (
+          <button key={id} type="button" className={aba === id ? 'ativa' : ''} onClick={() => setAba(id)}>
+            {rotulo}
+          </button>
+        ))}
+      </nav>
+
+      {aba === 'reservas' && <Reservas />}
+      {aba === 'mesas' && <Mesas ehAdmin={ehAdmin} />}
+      {aba === 'usuarios' && ehAdmin && <Usuarios />}
+
+      <p className="nota">Cardápio e pedidos chegam nas próximas fases.</p>
     </main>
   );
+}
+
+function abasDoPerfil(ehAdmin) {
+  const abas = [
+    { id: 'reservas', rotulo: 'Reservas' },
+    { id: 'mesas', rotulo: 'Mesas' },
+  ];
+  return ehAdmin ? [...abas, { id: 'usuarios', rotulo: 'Usuários' }] : abas;
 }
 
 export default App;

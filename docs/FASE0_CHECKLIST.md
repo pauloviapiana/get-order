@@ -1,4 +1,4 @@
-# Checklist — Fase 0 (Planejamento) + Fase 1 (Scaffold) + Fase 2 (Auth)
+# Checklist — Fase 0 (Planejamento) + Fase 1 (Scaffold) + Fase 2 (Auth) + Fase 3 (Mesas e reservas)
 
 Marcado = fechado nesta fase.
 
@@ -58,14 +58,31 @@ Detalhe: [`FASE2_AUTH.md`](FASE2_AUTH.md).
 
 ---
 
-## Próximas fases (fora da Fase 2)
+## Fase 3 — mesas e reservas (concluído)
 
-- [ ] **Fase 3:** migrations/models `mesas` e `reservas`; regras sex/sáb/dom, slots 18:00–22:30, disponibilidade em transação, status e transições
+Detalhe: [`FASE3_MESAS_RESERVAS.md`](FASE3_MESAS_RESERVAS.md).
+
+- [x] Migrations + models `mesas` e `reservas` (02 e 03 de `MODELO_DADOS.md`), FKs `RESTRICT`, CHECKs, ENUM de status, associações
+- [x] Regras no `reservaService`: sex/sáb/dom, slots 18:00–22:30, passado (America/Sao_Paulo), capacidade, mesa ativa
+- [x] Conflito de slot em transação com lock da mesa → 409; cancelada/concluída liberam o slot
+- [x] Transições de status de §3 (terminais travados); edição só em `pendente`/`confirmada` com revalidação
+- [x] RBAC: cliente só as próprias; só equipe confirma/conclui; escrita de mesas só admin
+- [x] `mesaService`: CRUD admin, desativar via `PATCH /mesas/:id/ativa`, disponibilidade por slot
+- [x] Schemas Zod de mesas e reservas; rotas `/api/mesas` e `/api/reservas`
+- [x] Seed: 7 mesas (M1–M7, uma inativa) + 4 reservas com status variados, reexecutável
+- [x] Coleção Postman `backend/postman/Get-Order-Mesas-Reservas.postman_collection.json`
+- [x] Frontend cliente: disponibilidade, reservar, minhas reservas, cancelar
+- [x] Frontend gestão: abas Reservas (filtros + confirmar/concluir/cancelar) e Mesas (CRUD/desativar admin)
+
+---
+
+## Próximas fases (fora da Fase 3)
+
 - [ ] Cardápio: `categorias_menu` e `itens_menu`
 - [ ] Pedidos: `pedidos` e `pedido_itens`, fluxo de status, garçom e 10%
 - [ ] Financeiro: `compras` e relatórios
-- [ ] Seed de domínio (mesas, cardápio, reservas, pedidos, compras)
-- [ ] Telas de reserva, cardápio, pedidos e financeiro nos frontends
+- [ ] Seed de domínio restante (cardápio, pedidos, compras)
+- [ ] Telas de cardápio, pedidos e financeiro nos frontends
 
 ---
 

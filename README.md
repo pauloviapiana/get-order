@@ -14,9 +14,10 @@ Planejamento e modelo de dados estão em [`docs/`](docs/):
 - [MATRIZ_RBAC.md](docs/MATRIZ_RBAC.md) — permissões por perfil  
 - [FASE0_CHECKLIST.md](docs/FASE0_CHECKLIST.md) — checklist por fase  
 - [FASE2_AUTH.md](docs/FASE2_AUTH.md) — endpoints de auth/usuários, erros e usuários seed  
+- [FASE3_MESAS_RESERVAS.md](docs/FASE3_MESAS_RESERVAS.md) — mesas, reservas, disponibilidade, status e seed  
 
-**Fase 0 concluída. Fase 1 (scaffold) concluída. Fase 2 (auth) concluída.**  
-Mesas e reservas = **Fase 3**; cardápio, pedidos e financeiro nas fases seguintes.
+**Fases 0 a 3 concluídas** (planejamento, scaffold, auth, mesas e reservas).  
+Cardápio, pedidos e financeiro nas fases seguintes.
 
 ---
 
@@ -54,8 +55,8 @@ npm run seed
 npm run dev
 ```
 
-- `db:migrate` cria a tabela `usuarios` (única migration até aqui).
-- `npm run seed` cria os usuários demo; pode ser executado de novo sem duplicar.
+- `db:migrate` cria as tabelas `usuarios`, `mesas` e `reservas`.
+- `npm run seed` cria os usuários demo, 7 mesas (M1–M7, M7 inativa) e 4 reservas de exemplo; pode ser executado de novo sem duplicar.
 
 API em `http://localhost:3001` (rotas sob `/api`).  
 Teste: `GET http://localhost:3001/api/health` → `{ "ok": true }`.
@@ -70,7 +71,14 @@ Senha de todos: **`123456`**
 | funcionario | `funcionario1@getorder.com`, `funcionario2@getorder.com` |
 | cliente | `cliente1@getorder.com`, `cliente2@getorder.com`, `cliente3@getorder.com` |
 
-Coleção Postman: `backend/postman/Get-Order-Auth.postman_collection.json` (detalhes em [FASE2_AUTH.md](docs/FASE2_AUTH.md)).
+Coleções Postman (rodar cada uma inteira, em ordem):
+
+- `backend/postman/Get-Order-Auth.postman_collection.json` — auth e usuários ([FASE2_AUTH.md](docs/FASE2_AUTH.md))
+- `backend/postman/Get-Order-Mesas-Reservas.postman_collection.json` — mesas e reservas ([FASE3_MESAS_RESERVAS.md](docs/FASE3_MESAS_RESERVAS.md))
+
+```powershell
+postman collection run backend/postman/Get-Order-Mesas-Reservas.postman_collection.json
+```
 
 ### 3) Frontend cliente (porta 5173)
 
@@ -94,8 +102,8 @@ npm install
 npm run dev
 ```
 
-- **Cliente (5173):** criar conta, entrar e sair.
-- **Gestão (5174):** login de admin/funcionário (cliente é recusado); admin vê a lista de usuários.
+- **Cliente (5173):** criar conta, entrar e sair; consultar mesas livres, reservar (sex/sáb/dom, 18:00–22:30), ver e cancelar as próprias reservas.
+- **Gestão (5174):** login de admin/funcionário (cliente é recusado); aba Reservas (filtros, confirmar/concluir/cancelar) e aba Mesas (admin cria/edita/desativa; funcionário consulta); admin vê também a lista de usuários.
 
 ---
 

@@ -102,3 +102,50 @@ button:disabled {
 .tabela th {
   background: #dfe8ec;
 }
+
+.tabela input {
+  font: inherit;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.acoes button {
+  padding: 0.25rem 0.6rem;
+}
+
+.abas {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.abas button {
+  background: transparent;
+  color: #1f4e66;
+}
+
+.abas button.ativa {
+  background: #1f4e66;
+  color: #fff;
+}
+
+.filtros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.filtros input,
+.filtros select {
+  font: inherit;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid #b5c4cc;
+  border-radius: 4px;
+}

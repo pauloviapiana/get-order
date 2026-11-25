@@ -74,7 +74,8 @@ button:disabled {
   align-items: flex-start;
 }
 
-.formulario input {
+.formulario input,
+.formulario select {
   font: inherit;
   padding: 0.45rem 0.6rem;
   border: 1px solid #c9bba8;
@@ -92,4 +93,28 @@ button:disabled {
 .nota {
   margin-top: 1rem;
   font-size: 0.9rem;
+}
+
+.lista-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.tabela {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+}
+
+.tabela th,
+.tabela td {
+  padding: 0.45rem 0.6rem;
+  border: 1px solid #e3d9cc;
+  text-align: left;
+}
+
+.tabela th {
+  background: #efe6da;
 }
