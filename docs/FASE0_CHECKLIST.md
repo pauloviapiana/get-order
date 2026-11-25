@@ -1,4 +1,4 @@
-# Checklist — Fase 0 (Planejamento) + Fase 1 (Scaffold) + Fase 2 (Auth) + Fase 3 (Mesas e reservas) + Fase 4 (Cardápio) + Fase 5 (Pedidos) + Fase 6 (Financeiro) + Fase 7 (Erros, CORS e docs) + Fase 8 (Frontend cliente) + Fase 9 (Frontend gestão)
+# Checklist — Fase 0 (Planejamento) + Fase 1 (Scaffold) + Fase 2 (Auth) + Fase 3 (Mesas e reservas) + Fase 4 (Cardápio) + Fase 5 (Pedidos) + Fase 6 (Financeiro) + Fase 7 (Erros, CORS e docs) + Fase 8 (Frontend cliente) + Fase 9 (Frontend gestão) + Fase 10 (Integração e entrega)
 
 Marcado = fechado nesta fase.
 
@@ -171,12 +171,27 @@ Telas básicas já existiam nas Fases 2–6; esta fase consolidou o site de gest
 
 ---
 
-## Próxima fase — Fase 10 (integração e entrega)
+## Fase 10 — integração e entrega (concluído)
 
-- [ ] Ensaio ponta a ponta dos dois sites contra a API já documentada
-- [ ] README e checklist de entrega no espírito de um pacote final (o README de subida já existe)
+Detalhe: [`FASE10_ENTREGA.md`](FASE10_ENTREGA.md). Evidências: [`FASE10_EVIDENCIAS.md`](FASE10_EVIDENCIAS.md). Checklist: [`CHECKLIST_ENTREGA.md`](CHECKLIST_ENTREGA.md).
 
-Depois: **Fase 11** — polimento de apresentação. Sem retrabalho de UI inventado aqui.
+- [x] Verificar `.env.example` (backend + dois frontends), seed reexecutável e subida “do zero” (migrate → seed × 2 → health)
+- [x] Ensaio ponta a ponta: 11 cenários (Postman na ordem oficial + UI cliente/gestão) — todos PASS
+- [x] Pacote de entrega: `FASE10_EVIDENCIAS.md`, `CHECKLIST_ENTREGA.md`, `FASE10_ENTREGA.md`
+- [x] README da raiz polido como pacote final (Fases 0–10; Fase 11 opcional)
+- [x] `DOCUMENTACAO.md` aponta o pacote de entrega / Fase 10
+
+---
+
+## Próxima fase — Fase 11 (polimento, opcional)
+
+Não bloqueia a entrega acadêmica. Sem implementar aqui:
+
+- [ ] Rate limit
+- [ ] Refresh token
+- [ ] React Router
+- [ ] Redesign visual / polimento de apresentação
+- [ ] PWA
 
 ---
 

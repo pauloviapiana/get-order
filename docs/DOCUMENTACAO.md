@@ -5,6 +5,8 @@ As notas por fase (`FASE2_AUTH.md` … `FASE6_FINANCEIRO.md`, `FASE7_DOCS_ERROS.
 
 Artefatos relacionados: [`DER.md`](DER.md), [`MODELO_DADOS.md`](MODELO_DADOS.md), [`MATRIZ_RBAC.md`](MATRIZ_RBAC.md), [`schema_referencia.sql`](schema_referencia.sql), [`FASE0_REGRAS.md`](FASE0_REGRAS.md).
 
+Pacote de entrega (Fase 10): [`FASE10_ENTREGA.md`](FASE10_ENTREGA.md), [`FASE10_EVIDENCIAS.md`](FASE10_EVIDENCIAS.md), [`CHECKLIST_ENTREGA.md`](CHECKLIST_ENTREGA.md).
+
 ---
 
 ## 1. Objetivo do sistema
@@ -355,3 +357,4 @@ Também cria 7 mesas (M1–M7, M7 inativa), 4 reservas, 5 categorias (1 inativa)
 6. Dinheiro calculado em centavos inteiros; a API devolve string com 2 casas.
 7. Comissão de 10% é gravada uma vez, na ida para `pago`, e só lida no financeiro. Compras não entram nessa base.
 8. Coleções Postman por domínio provam o contrato; `docs/DOCUMENTACAO.md` lista o mesmo conjunto de rotas.
+9. Fases 0–10 concluídas (incluindo ensaio ponta a ponta e checklist de entrega). Fase 11 (rate limit, refresh token, React Router, redesign, PWA) é opcional.
