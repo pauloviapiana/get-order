@@ -5,6 +5,7 @@ import ItemMenu from './ItemMenu.js';
 import Mesa from './Mesa.js';
 import Pedido from './Pedido.js';
 import PedidoItem from './PedidoItem.js';
+import RefreshToken from './RefreshToken.js';
 import Reserva from './Reserva.js';
 import Usuario from './Usuario.js';
 
@@ -31,4 +32,18 @@ PedidoItem.belongsTo(ItemMenu, { foreignKey: 'itemMenuId', as: 'item' });
 Usuario.hasMany(Compra, { foreignKey: 'registradoPorId', as: 'comprasRegistradas' });
 Compra.belongsTo(Usuario, { foreignKey: 'registradoPorId', as: 'registradoPor' });
 
-export { sequelize, CategoriaMenu, Compra, ItemMenu, Mesa, Pedido, PedidoItem, Reserva, Usuario };
+Usuario.hasMany(RefreshToken, { foreignKey: 'usuarioId', as: 'refreshTokens' });
+RefreshToken.belongsTo(Usuario, { foreignKey: 'usuarioId', as: 'usuario' });
+
+export {
+  sequelize,
+  CategoriaMenu,
+  Compra,
+  ItemMenu,
+  Mesa,
+  Pedido,
+  PedidoItem,
+  RefreshToken,
+  Reserva,
+  Usuario,
+};

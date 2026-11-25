@@ -17,7 +17,7 @@ API em `http://localhost:3001/api`. Senha demo: `123456`.
 
 | Ordem | Arquivo | O que cobre |
 |------:|---------|-------------|
-| 1 | `Get-Order-Auth.postman_collection.json` | `/health`, auth, usuários |
+| 1 | `Get-Order-Auth.postman_collection.json` | `/health`, auth (login/refresh/logout), usuários |
 | 2 | `Get-Order-Mesas-Reservas.postman_collection.json` | mesas e reservas |
 | 3 | `Get-Order-Cardapio.postman_collection.json` | categorias e itens |
 | 4 | `Get-Order-Pedidos.postman_collection.json` | pedidos, garçom, pagamento |

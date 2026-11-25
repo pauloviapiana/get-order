@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { formatarData, formatarPreco } from '../services/formato';
 import { mensagemDeErro } from '../services/sessao';
@@ -15,7 +16,8 @@ const RESERVAS_VINCULAVEIS = ['pendente', 'confirmada'];
  * Cardápio (a API já devolve só categorias ativas e itens disponíveis) com quantidade por item
  * para montar o pedido; reserva pendente/confirmada pode ser vinculada (compra antecipada).
  */
-function Cardapio({ onVerPedidos }) {
+function Cardapio() {
+  const navigate = useNavigate();
   const [categorias, setCategorias] = useState([]);
   const [itens, setItens] = useState([]);
   const [reservas, setReservas] = useState([]);
@@ -153,7 +155,7 @@ function Cardapio({ onVerPedidos }) {
       {mensagem && (
         <p className="mensagem-sucesso" role="status">
           {mensagem}{' '}
-          <button type="button" className="link" onClick={onVerPedidos}>
+          <button type="button" className="link" onClick={() => navigate('/meus-pedidos')}>
             Ver meus pedidos
           </button>
         </p>

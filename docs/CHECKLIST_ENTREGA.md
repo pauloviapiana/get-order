@@ -3,7 +3,7 @@
 Checklist no espírito da entrega acadêmica (pacote final), alinhado às Fases 0–10.  
 Marcação conforme o estado **real do repositório** após o ensaio da Fase 10.
 
-Legenda: `[x]` pronto no código/artefatos · `[ ]` ainda não feito (não implementar aqui se for Fase 11).
+Legenda: `[x]` pronto no código/artefatos · `[ ]` ainda não feito.
 
 ---
 
@@ -80,15 +80,15 @@ Legenda: `[x]` pronto no código/artefatos · `[ ]` ainda não feito (não imple
 
 ---
 
-## 7. Fora do escopo desta entrega (Fase 11 — NÃO implementar agora)
+## 7. Fase 11 — polimento opcional (concluído)
 
-Marcado como pendente de propósito; não bloqueia o MVP:
+Detalhe: [`FASE11_POLIMENTO.md`](FASE11_POLIMENTO.md). Não altera o MVP das Fases 2–10.
 
-- [ ] Rate limit
-- [ ] Refresh token
-- [ ] React Router (navegação por rotas)
-- [ ] Redesign visual / polimento de apresentação
-- [ ] PWA
+- [x] Rate limit
+- [x] Refresh token
+- [x] React Router (navegação por rotas)
+- [x] Redesign visual / polimento de apresentação
+- [x] PWA
 
 ---
 

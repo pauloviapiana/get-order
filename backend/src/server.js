@@ -1,10 +1,12 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import sequelize from './config/database.js';
 import './models/index.js';
 import routes from './routes/index.js';
 import { rotaNaoEncontrada, tratarErros } from './middlewares/erros.js';
+import { limiteGeral } from './middlewares/rateLimit.js';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3001;
@@ -22,13 +24,21 @@ if (clientOrigins.length === 0 || clientOrigins.includes('*')) {
   process.exit(1);
 }
 
+// Helmet com CSP desligado: os frontends Vite em outras origens não servem HTML da API.
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  })
+);
+
 app.use(
   cors({
     origin: clientOrigins,
   })
 );
 app.use(express.json());
-app.use('/api', routes);
+app.use('/api', limiteGeral, routes);
 app.use(rotaNaoEncontrada);
 app.use(tratarErros);
 

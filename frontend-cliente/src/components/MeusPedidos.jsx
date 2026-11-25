@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { formatarData, formatarPreco } from '../services/formato';
 import { mensagemDeErro } from '../services/sessao';
@@ -13,7 +14,8 @@ const ROTULOS_STATUS = {
 };
 
 /** GET /pedidos (a API devolve só os do cliente logado) + cancelar (aberto) e pagar (entregue). */
-function MeusPedidos({ onPedir }) {
+function MeusPedidos() {
+  const navigate = useNavigate();
   const [pedidos, setPedidos] = useState([]);
   const [erro, setErro] = useState('');
   const [mensagem, setMensagem] = useState('');
@@ -120,7 +122,7 @@ function MeusPedidos({ onPedir }) {
         pedidos.length === 0 && (
           <p className="nota">
             Você ainda não fez pedidos.{' '}
-            <button type="button" className="link" onClick={onPedir}>
+            <button type="button" className="link" onClick={() => navigate('/cardapio')}>
               Ver o cardápio
             </button>
           </p>

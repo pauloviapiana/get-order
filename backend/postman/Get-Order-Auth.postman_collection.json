@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Get-Order — Auth e Usuários (Fase 2)",
-    "description": "Fase 2: register, login, me, CRUD de usuários e cenários 400/401/403/404/409.\n\n**Base:** {{baseUrl}} = http://localhost:3001/api\n\n**Como usar**\n1. `cd backend` → `npx sequelize-cli db:migrate` → `npm run seed` → `npm run dev`.\n2. Importe este arquivo no Postman e rode a coleção inteira **em ordem** (Runner),\n   ou pela CLI: `postman collection run backend/postman/Get-Order-Auth.postman_collection.json`.\n3. Os requests de login salvam tokenAdmin / tokenFuncionario / tokenCliente.\n\nUsuários seed (senha 123456): admin@getorder.com, funcionario1@getorder.com, cliente1@getorder.com.\nCada execução cadastra um cliente e um funcionário novos (e-mail com timestamp), então a coleção é reexecutável.",
+    "description": "Fase 2 + Fase 11: register, login, refresh, logout, me, CRUD de usuários e cenários 400/401/403/404/409.\n\n**Base:** {{baseUrl}} = http://localhost:3001/api\n\n**Como usar**\n1. `cd backend` → `npx sequelize-cli db:migrate` → `npm run seed` → `npm run dev`.\n2. Importe este arquivo no Postman e rode a coleção inteira **em ordem** (Runner),\n   ou pela CLI: `postman collection run backend/postman/Get-Order-Auth.postman_collection.json`.\n3. Os requests de login salvam tokenAdmin / tokenFuncionario / tokenCliente e refreshToken*.\n\nLogin devolve `{ token, refreshToken, usuario }`. Access JWT default 30m; refresh 7d com rotação em POST /auth/refresh.\nUsuários seed (senha 123456): admin@getorder.com, funcionario1@getorder.com, cliente1@getorder.com.\nCada execução cadastra um cliente e um funcionário novos (e-mail com timestamp), então a coleção é reexecutável."
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -26,6 +26,14 @@
     },
     {
       "key": "tokenCliente",
+      "value": ""
+    },
+    {
+      "key": "refreshTokenCliente",
+      "value": ""
+    },
+    {
+      "key": "refreshTokenAdmin",
       "value": ""
     },
     {
@@ -191,9 +199,11 @@
                   "pm.test('não expõe senha', () => pm.expect(pm.response.text()).to.not.include('\"senha\"'));",
                   "const data = pm.response.json();",
                   "if (data.token) pm.collectionVariables.set('tokenCliente', data.token);",
+                  "if (data.refreshToken) pm.collectionVariables.set('refreshTokenCliente', data.refreshToken);",
                   "const payload = JSON.parse(atob(data.token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));",
                   "pm.test('payload id/email/perfil', () => pm.expect(payload).to.include.keys('id', 'email', 'perfil'));",
                   "pm.test('expira em 30 minutos', () => pm.expect(payload.exp - payload.iat).to.eql(1800));",
+                  "pm.test('tem refreshToken', () => pm.expect(data.refreshToken).to.be.a('string').that.is.not.empty);",
                   "pm.test('usuario {id,nome,email,perfil}', () => pm.expect(data.usuario).to.have.all.keys('id', 'nome', 'email', 'perfil'));"
                 ]
               }
@@ -225,8 +235,10 @@
                   "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
                   "const data = pm.response.json();",
                   "if (data.token) pm.collectionVariables.set('tokenAdmin', data.token);",
+                  "if (data.refreshToken) pm.collectionVariables.set('refreshTokenAdmin', data.refreshToken);",
                   "if (data.usuario) pm.collectionVariables.set('adminId', data.usuario.id);",
-                  "pm.test('perfil admin', () => pm.expect(data.usuario.perfil).to.eql('admin'));"
+                  "pm.test('perfil admin', () => pm.expect(data.usuario.perfil).to.eql('admin'));",
+                  "pm.test('tem refreshToken', () => pm.expect(data.refreshToken).to.be.a('string').that.is.not.empty);"
                 ]
               }
             }
@@ -363,6 +375,161 @@
                 }
               ]
             }
+          }
+        },
+        {
+          "name": "Refresh (admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const data = pm.response.json();",
+                  "pm.test('novo access token', () => pm.expect(data.token).to.be.a('string').that.is.not.empty);",
+                  "pm.test('novo refreshToken (rotação)', () => pm.expect(data.refreshToken).to.be.a('string').that.is.not.empty);",
+                  "pm.test('refresh rotacionado', () => pm.expect(data.refreshToken).to.not.eql(pm.collectionVariables.get('refreshTokenAdmin')));",
+                  "if (data.token) pm.collectionVariables.set('tokenAdmin', data.token);",
+                  "if (data.refreshToken) pm.collectionVariables.set('refreshTokenAdmin', data.refreshToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/refresh",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshTokenAdmin}}\"\n}"
+            },
+            "description": "Rotação: o refresh antigo fica inválido; a resposta traz um novo par token + refreshToken."
+          }
+        },
+        {
+          "name": "Refresh inválido (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+                  "pm.test('corpo { erro }', () => pm.expect(pm.response.json().erro).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/refresh",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"token-refresh-invalido\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Logout (cliente)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('ok true', () => pm.expect(pm.response.json().ok).to.eql(true));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/logout",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshTokenCliente}}\"\n}"
+            },
+            "description": "Invalida o refresh do cliente. O access JWT antigo ainda pode valer até expirar (30m); o front limpa a sessão local."
+          }
+        },
+        {
+          "name": "Refresh após logout (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+                  "pm.test('corpo { erro }', () => pm.expect(pm.response.json().erro).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/refresh",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshTokenCliente}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login cliente (após logout — restaura tokenCliente)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const data = pm.response.json();",
+                  "if (data.token) pm.collectionVariables.set('tokenCliente', data.token);",
+                  "if (data.refreshToken) pm.collectionVariables.set('refreshTokenCliente', data.refreshToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{emailCadastro}}\",\n  \"senha\": \"{{senhaDemo}}\"\n}"
+            },
+            "description": "Reloga o cliente cadastrado no início da coleção para os testes RBAC posteriores."
           }
         },
         {

@@ -1,4 +1,4 @@
-# Checklist — Fase 0 (Planejamento) + Fase 1 (Scaffold) + Fase 2 (Auth) + Fase 3 (Mesas e reservas) + Fase 4 (Cardápio) + Fase 5 (Pedidos) + Fase 6 (Financeiro) + Fase 7 (Erros, CORS e docs) + Fase 8 (Frontend cliente) + Fase 9 (Frontend gestão) + Fase 10 (Integração e entrega)
+# Checklist — Fase 0 (Planejamento) + Fase 1 (Scaffold) + Fase 2 (Auth) + Fase 3 (Mesas e reservas) + Fase 4 (Cardápio) + Fase 5 (Pedidos) + Fase 6 (Financeiro) + Fase 7 (Erros, CORS e docs) + Fase 8 (Frontend cliente) + Fase 9 (Frontend gestão) + Fase 10 (Integração e entrega) + Fase 11 (Polimento)
 
 Marcado = fechado nesta fase.
 
@@ -183,15 +183,15 @@ Detalhe: [`FASE10_ENTREGA.md`](FASE10_ENTREGA.md). Evidências: [`FASE10_EVIDENC
 
 ---
 
-## Próxima fase — Fase 11 (polimento, opcional)
+## Fase 11 — polimento opcional (concluído)
 
-Não bloqueia a entrega acadêmica. Sem implementar aqui:
+Detalhe: [`FASE11_POLIMENTO.md`](FASE11_POLIMENTO.md).
 
-- [ ] Rate limit
-- [ ] Refresh token
-- [ ] React Router
-- [ ] Redesign visual / polimento de apresentação
-- [ ] PWA
+- [x] Rate limit
+- [x] Refresh token
+- [x] React Router
+- [x] Redesign visual / polimento de apresentação
+- [x] PWA
 
 ---
 

@@ -103,4 +103,4 @@ Senha de todos: **`123456`**
 
 ## Próxima fase (não implementada)
 
-**Fase 11** — polimento opcional: rate limit, refresh token, React Router, redesign visual, PWA.
+**Fase 11** — polimento opcional **concluído**: rate limit, refresh token, React Router, redesign visual, PWA — ver [`FASE11_POLIMENTO.md`](FASE11_POLIMENTO.md).

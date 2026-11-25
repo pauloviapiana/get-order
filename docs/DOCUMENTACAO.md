@@ -5,7 +5,8 @@ As notas por fase (`FASE2_AUTH.md` … `FASE6_FINANCEIRO.md`, `FASE7_DOCS_ERROS.
 
 Artefatos relacionados: [`DER.md`](DER.md), [`MODELO_DADOS.md`](MODELO_DADOS.md), [`MATRIZ_RBAC.md`](MATRIZ_RBAC.md), [`schema_referencia.sql`](schema_referencia.sql), [`FASE0_REGRAS.md`](FASE0_REGRAS.md).
 
-Pacote de entrega (Fase 10): [`FASE10_ENTREGA.md`](FASE10_ENTREGA.md), [`FASE10_EVIDENCIAS.md`](FASE10_EVIDENCIAS.md), [`CHECKLIST_ENTREGA.md`](CHECKLIST_ENTREGA.md).
+Pacote de entrega (Fase 10): [`FASE10_ENTREGA.md`](FASE10_ENTREGA.md), [`FASE10_EVIDENCIAS.md`](FASE10_EVIDENCIAS.md), [`CHECKLIST_ENTREGA.md`](CHECKLIST_ENTREGA.md).  
+Polimento opcional (Fase 11): [`FASE11_POLIMENTO.md`](FASE11_POLIMENTO.md).
 
 ---
 
@@ -25,8 +26,8 @@ Há **dois sites** (cliente e gestão) e uma API REST. A autorização real fica
 | Backend | Node.js + Express 5 |
 | Persistência | **Sequelize** (models, migrations, seed) — única estratégia do projeto |
 | Validação de entrada | **Zod** |
-| Auth | bcrypt (senha) + JWT (sessão, **30 minutos**) |
-| Frontends | Vite + React (JavaScript) + Axios — dois apps |
+| Auth | bcrypt (senha) + JWT access (**30m**) + refresh token com rotação |
+| Frontends | Vite + React (JavaScript) + Axios + React Router + PWA — dois apps |
 | Testes manuais de API | Coleções Postman em `backend/postman/` |
 
 Base da API: `http://localhost:3001/api`.
@@ -46,19 +47,19 @@ get-order/
 │       ├── config/           # conexão Sequelize
 │       ├── controllers/      # HTTP fino
 │       ├── middlewares/      # autenticar, autorizarPerfil, tratarErros
-│       ├── migrations/       # 8 tabelas — fonte de verdade do schema
+│       ├── migrations/       # domínio + refresh_tokens — fonte de verdade do schema
 │       ├── models/
 │       ├── routes/           # mapa /api
 │       ├── schemas/          # Zod
 │       ├── seeders/          # npm run seed
 │       ├── services/         # regras de negócio
 │       ├── utils/            # HttpErro, dinheiro, errosSequelize
-│       └── server.js         # porta 3001
-├── frontend-cliente/         # Vite — porta 5173
+│       └── server.js         # porta 3001 (helmet + rate limit)
+├── frontend-cliente/         # Vite — porta 5173 (Router + PWA)
 │   └── src/
 │       ├── components/       # Login, Cadastro, Cardapio, NovaReserva, MinhasReservas, MeusPedidos
-│       └── services/         # api.js (Axios) + sessao.js (sessionStorage)
-├── frontend-gestao/          # Vite — porta 5174
+│       └── services/         # api.js (Axios + refresh) + sessao.js (sessionStorage)
+├── frontend-gestao/          # Vite — porta 5174 (Router + PWA)
 │   └── src/
 │       ├── components/       # Login, Usuarios, Mesas, Reservas, Cardapio, Pedidos, Compras, Financeiro
 │       └── services/
@@ -72,7 +73,7 @@ Camadas da API: **routes → controllers → services → models**. O controller
 
 ## 4. Modelo de dados
 
-Oito tabelas. Diagrama em [`DER.md`](DER.md); campos em [`MODELO_DADOS.md`](MODELO_DADOS.md); SQL didático em [`schema_referencia.sql`](schema_referencia.sql).
+Nove tabelas (8 de domínio + `refresh_tokens` na Fase 11). Diagrama de domínio em [`DER.md`](DER.md); campos em [`MODELO_DADOS.md`](MODELO_DADOS.md); SQL didático em [`schema_referencia.sql`](schema_referencia.sql).
 
 | Tabela | Papel | Destaques |
 |--------|-------|-----------|
@@ -84,6 +85,7 @@ Oito tabelas. Diagrama em [`DER.md`](DER.md); campos em [`MODELO_DADOS.md`](MODE
 | `pedidos` | Comanda | FK cliente, garçom e reserva opcional (`RESTRICT`); ENUM de status; CHECK do pagamento |
 | `pedido_itens` | Linhas da comanda | Preço snapshot; CHECK quantidade e valores |
 | `compras` | Despesas de insumos | FK `registradoPorId` (`RESTRICT`); CHECK `valor >= 0` |
+| `refresh_tokens` | Sessão renovável (Fase 11) | FK `usuarioId`; `tokenHash` UNIQUE (SHA-256); `expiresAt` / `revokedAt` |
 
 **Relacionamentos 1:N**
 
@@ -184,7 +186,9 @@ Não há `DELETE` de mesa, categoria, item, reserva ou pedido: desativar, marcar
 |--------|------|------|--------|
 | GET | `/health` | não | `{ ok: true }` |
 | POST | `/auth/register` | não | Corpo `{ nome, email, senha, telefone? }`. Perfil gravado: `cliente`. 201 |
-| POST | `/auth/login` | não | Corpo `{ email, senha }`. 200 `{ token, usuario: { id, nome, email, perfil } }` |
+| POST | `/auth/login` | não | Corpo `{ email, senha }`. 200 `{ token, refreshToken, usuario: { id, nome, email, perfil } }` |
+| POST | `/auth/refresh` | não | Corpo `{ refreshToken }`. Rotação; 200 no mesmo formato do login |
+| POST | `/auth/logout` | não | Corpo `{ refreshToken? }`. Invalida o refresh; 200 `{ ok: true }` |
 
 ### Auth
 
@@ -353,8 +357,8 @@ Também cria 7 mesas (M1–M7, M7 inativa), 4 reservas, 5 categorias (1 inativa)
 2. `docs/schema_referencia.sql` é entrega didática (CREATE + exemplos). Não substitui `db:migrate` nem `npm run seed`.
 3. Regra de negócio nas **services** (agenda, conflito de slot, transições, comissão, posse). Controllers só traduzem HTTP.
 4. Entrada validada com **Zod** antes da service. Banco (UNIQUE, FK, CHECK) é a rede de segurança, mapeada para 409/400 sem vazar SQL.
-5. Dois sites, uma API. CORS só nas origens listadas. JWT de 30 minutos no `sessionStorage`.
+5. Dois sites, uma API. CORS só nas origens listadas. Access JWT (~30m) + refresh no `sessionStorage`; interceptor renova uma vez em 401.
 6. Dinheiro calculado em centavos inteiros; a API devolve string com 2 casas.
 7. Comissão de 10% é gravada uma vez, na ida para `pago`, e só lida no financeiro. Compras não entram nessa base.
 8. Coleções Postman por domínio provam o contrato; `docs/DOCUMENTACAO.md` lista o mesmo conjunto de rotas.
-9. Fases 0–10 concluídas (incluindo ensaio ponta a ponta e checklist de entrega). Fase 11 (rate limit, refresh token, React Router, redesign, PWA) é opcional.
+9. Fases 0–11 concluídas. Fase 11: rate limit, refresh token, React Router, redesign visual, PWA (shell offline; API online) — ver [`FASE11_POLIMENTO.md`](FASE11_POLIMENTO.md).

@@ -1,4 +1,4 @@
-import { loginSchema, registerSchema } from '../schemas/usuarioSchemas.js';
+import { loginSchema, logoutSchema, refreshTokenSchema, registerSchema } from '../schemas/usuarioSchemas.js';
 import * as authService from '../services/authService.js';
 
 export async function register(req, res) {
@@ -10,6 +10,16 @@ export async function register(req, res) {
 export async function login(req, res) {
   const dados = loginSchema.parse(req.body ?? {});
   res.json(await authService.login(dados));
+}
+
+export async function refresh(req, res) {
+  const dados = refreshTokenSchema.parse(req.body ?? {});
+  res.json(await authService.refresh(dados));
+}
+
+export async function logout(req, res) {
+  const dados = logoutSchema.parse(req.body ?? {});
+  res.json(await authService.logout(dados));
 }
 
 export async function me(req, res) {

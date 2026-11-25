@@ -4,8 +4,8 @@ Sistema acadêmico de gestão para restaurante IOT: autenticação com RBAC, res
 
 Stack: **PERN** + **Sequelize com migrations**, JWT, bcrypt, Zod e API em camadas.
 
-**Fases 0 a 10 concluídas** (planejamento → scaffold → auth → mesas/reservas → cardápio → pedidos → financeiro → erros/CORS/docs → frontend cliente → frontend gestão → integração e pacote de entrega).  
-**Fase 11** (rate limit, refresh token, React Router, redesign visual, PWA) é **opcional** e não faz parte deste pacote.
+**Fases 0 a 11 concluídas** (planejamento → scaffold → auth → mesas/reservas → cardápio → pedidos → financeiro → erros/CORS/docs → frontend cliente → frontend gestão → integração e pacote de entrega → polimento: rate limit, refresh token, React Router, redesign, PWA).  
+Detalhe da Fase 11: [`docs/FASE11_POLIMENTO.md`](docs/FASE11_POLIMENTO.md).
 
 ## Documentação
 
@@ -15,7 +15,8 @@ Contrato da API e modelo estão em [`docs/`](docs/):
 - [CHECKLIST_ENTREGA.md](docs/CHECKLIST_ENTREGA.md) — checklist de conclusão do pacote acadêmico  
 - [FASE10_ENTREGA.md](docs/FASE10_ENTREGA.md) — resumo da Fase 10 (comandos, logins, critérios de aceite)  
 - [FASE10_EVIDENCIAS.md](docs/FASE10_EVIDENCIAS.md) — ensaio ponta a ponta (11 cenários PASS)  
-- [schema_referencia.sql](docs/schema_referencia.sql) — SQL didático das 8 tabelas (a fonte de verdade continua sendo `db:migrate`)  
+- [FASE11_POLIMENTO.md](docs/FASE11_POLIMENTO.md) — rate limit, refresh token, React Router, redesign, PWA  
+- [schema_referencia.sql](docs/schema_referencia.sql) — SQL didático das tabelas de domínio (a fonte de verdade continua sendo `db:migrate`)  
 - [FASE0_REGRAS.md](docs/FASE0_REGRAS.md) — regras e decisões fechadas  
 - [DER.md](docs/DER.md) — diagrama entidade-relacionamento  
 - [MODELO_DADOS.md](docs/MODELO_DADOS.md) — tabelas, campos e ordem de migrations  
@@ -67,11 +68,12 @@ npm run seed
 npm run dev
 ```
 
-- `db:migrate` cria as 8 tabelas: `usuarios`, `mesas`, `reservas`, `categorias_menu`, `itens_menu`, `pedidos`, `pedido_itens`, `compras`.
+- `db:migrate` cria as tabelas de domínio + `refresh_tokens` (Fase 11): `usuarios`, `mesas`, `reservas`, `categorias_menu`, `itens_menu`, `pedidos`, `pedido_itens`, `compras`, `refresh_tokens`.
 - `npm run seed` cria usuários demo, 7 mesas (M1–M7, M7 inativa), 4 reservas, cardápio (5 categorias, 9 itens), 4 pedidos e 4 compras. É **reexecutável** (não duplica).
 
 API: `http://localhost:3001/api`.  
-Smoke: `GET http://localhost:3001/api/health` → `{ "ok": true }`.
+Smoke: `GET http://localhost:3001/api/health` → `{ "ok": true }`.  
+Auth: login devolve `{ token, refreshToken, usuario }`; `POST /auth/refresh` e `POST /auth/logout` (ver Fase 11).
 
 ### Logins demo
 
@@ -94,7 +96,7 @@ npm install
 npm run dev
 ```
 
-Abra `http://localhost:5173`. Só perfil `cliente` entra (admin/funcionário são recusados e apontados ao 5174). Abas: Reservar | Minhas reservas | Cardápio e pedido | Meus pedidos. Detalhe: [FASE8_FRONTEND_CLIENTE.md](docs/FASE8_FRONTEND_CLIENTE.md).
+Abra `http://localhost:5173`. Só perfil `cliente` entra (admin/funcionário são recusados e apontados ao 5174). Rotas: `/login`, `/cadastro`, `/reservar`, `/minhas-reservas`, `/cardapio`, `/meus-pedidos`. Detalhe: [FASE8_FRONTEND_CLIENTE.md](docs/FASE8_FRONTEND_CLIENTE.md) + [FASE11_POLIMENTO.md](docs/FASE11_POLIMENTO.md).
 
 ### 4) Frontend gestão (porta 5174)
 
@@ -107,7 +109,7 @@ npm install
 npm run dev
 ```
 
-Abra `http://localhost:5174`. Só `admin` / `funcionario` entram (cliente é recusado e apontado ao 5173). Abas por perfil: Reservas, Pedidos, Mesas, Cardápio; admin também Compras, Financeiro e Usuários; funcionário vê Minhas comissões. Detalhe: [FASE9_FRONTEND_GESTAO.md](docs/FASE9_FRONTEND_GESTAO.md).
+Abra `http://localhost:5174`. Só `admin` / `funcionario` entram (cliente é recusado e apontado ao 5173). Rotas: `/login`, `/reservas`, `/pedidos`, `/mesas`, `/cardapio`, `/compras`, `/financeiro`, `/usuarios` (guards por perfil). Detalhe: [FASE9_FRONTEND_GESTAO.md](docs/FASE9_FRONTEND_GESTAO.md) + [FASE11_POLIMENTO.md](docs/FASE11_POLIMENTO.md).
 
 ---
 

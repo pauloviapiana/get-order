@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { formatarData } from '../services/formato';
 import { mensagemDeErro } from '../services/sessao';
@@ -6,7 +7,8 @@ import { mensagemDeErro } from '../services/sessao';
 const CANCELAVEIS = ['pendente', 'confirmada'];
 
 /** GET /reservas (a API devolve só as do cliente logado) + cancelar. */
-function MinhasReservas({ onReservar }) {
+function MinhasReservas() {
+  const navigate = useNavigate();
   const [reservas, setReservas] = useState([]);
   const [erro, setErro] = useState('');
   const [mensagem, setMensagem] = useState('');
@@ -72,7 +74,7 @@ function MinhasReservas({ onReservar }) {
         reservas.length === 0 && (
           <p className="nota">
             Você ainda não tem reservas.{' '}
-            <button type="button" className="link" onClick={onReservar}>
+            <button type="button" className="link" onClick={() => navigate('/reservar')}>
               Reservar uma mesa
             </button>
           </p>

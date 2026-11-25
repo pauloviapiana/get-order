@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
+import { Link, Navigate, NavLink, Route, Routes, useNavigate } from 'react-router-dom';
 import api, { EVENTO_SESSAO_EXPIRADA } from './services/api';
-import { MENSAGEM_PERFIL_GESTAO, lerUsuario, limparSessao, salvarSessao } from './services/sessao';
+import { MENSAGEM_PERFIL_GESTAO, encerrarSessao, lerUsuario, limparSessao, salvarSessao } from './services/sessao';
 import Cadastro from './components/Cadastro';
 import Cardapio from './components/Cardapio';
 import Login from './components/Login';
@@ -8,14 +9,13 @@ import MeusPedidos from './components/MeusPedidos';
 import MinhasReservas from './components/MinhasReservas';
 import NovaReserva from './components/NovaReserva';
 
-const ABAS = [
-  { id: 'reservar', rotulo: 'Reservar' },
-  { id: 'reservas', rotulo: 'Minhas reservas' },
-  { id: 'cardapio', rotulo: 'Cardápio e pedido' },
-  { id: 'pedidos', rotulo: 'Meus pedidos' },
+const NAV = [
+  { to: '/reservar', rotulo: 'Reservar' },
+  { to: '/minhas-reservas', rotulo: 'Minhas reservas' },
+  { to: '/cardapio', rotulo: 'Cardápio e pedido' },
+  { to: '/meus-pedidos', rotulo: 'Meus pedidos' },
 ];
 
-// Sessão gravada antes do gate de perfil (ou adulterada) não entra
 function usuarioInicial() {
   const usuario = lerUsuario();
   if (usuario && usuario.perfil !== 'cliente') {
@@ -25,13 +25,80 @@ function usuarioInicial() {
   return usuario;
 }
 
+function ShellPublico({ aviso, children }) {
+  return (
+    <div className="page page-auth">
+      <div className="auth-panel">
+        <p className="brand-mark">Get Order</p>
+        <h1 className="brand-title">Cliente</h1>
+        <p className="lede">Reserve sua mesa, veja o cardápio e acompanhe seus pedidos.</p>
+        {aviso && (
+          <p className="mensagem-erro" role="alert">
+            {aviso}
+          </p>
+        )}
+        <nav className="abas" aria-label="Acesso">
+          <NavLink to="/login" className={({ isActive }) => (isActive ? 'ativa' : undefined)}>
+            Entrar
+          </NavLink>
+          <NavLink to="/cadastro" className={({ isActive }) => (isActive ? 'ativa' : undefined)}>
+            Criar conta
+          </NavLink>
+        </nav>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function ShellApp({ usuario, onSair, children }) {
+  return (
+    <div className="page page-app">
+      <header className="topo">
+        <div className="topo-brand">
+          <Link to="/reservar" className="brand-mark">
+            Get Order
+          </Link>
+          <span className="topo-sub">Cliente</span>
+        </div>
+        <div className="topo-user">
+          <span>
+            {usuario.nome} (<strong>{usuario.perfil}</strong>)
+          </span>
+          <button type="button" className="btn-ghost" onClick={onSair}>
+            Sair
+          </button>
+        </div>
+      </header>
+
+      <nav className="abas" aria-label="Seções">
+        {NAV.map(({ to, rotulo }) => (
+          <NavLink key={to} to={to} className={({ isActive }) => (isActive ? 'ativa' : undefined)}>
+            {rotulo}
+          </NavLink>
+        ))}
+      </nav>
+
+      <div className="conteudo">{children}</div>
+    </div>
+  );
+}
+
+function RotaPrivada({ usuario, children }) {
+  if (!usuario) return <Navigate to="/login" replace />;
+  return children;
+}
+
+function RotaPublica({ usuario, children }) {
+  if (usuario) return <Navigate to="/reservar" replace />;
+  return children;
+}
+
 function App() {
   const [usuario, setUsuario] = useState(usuarioInicial);
-  const [acesso, setAcesso] = useState('login');
-  const [aba, setAba] = useState('reservar');
   const [aviso, setAviso] = useState('');
+  const navigate = useNavigate();
 
-  // Token salvo pode ter expirado (30 min): confirma com a API ao abrir
   useEffect(() => {
     if (!sessionStorage.getItem('token')) return;
 
@@ -42,6 +109,8 @@ function App() {
           limparSessao();
           setUsuario(null);
           setAviso(MENSAGEM_PERFIL_GESTAO);
+        } else {
+          setUsuario(res.data);
         }
       })
       .catch(() => {
@@ -50,90 +119,96 @@ function App() {
       });
   }, []);
 
-  // Qualquer 401 em requisição autenticada (ver services/api.js) volta para o login
   useEffect(() => {
     function expirou() {
       setUsuario(null);
-      setAcesso('login');
       setAviso('Sua sessão expirou. Entre novamente.');
+      navigate('/login', { replace: true });
     }
 
     window.addEventListener(EVENTO_SESSAO_EXPIRADA, expirou);
     return () => window.removeEventListener(EVENTO_SESSAO_EXPIRADA, expirou);
-  }, []);
+  }, [navigate]);
 
   function entrar(dados) {
     salvarSessao(dados);
     setUsuario(dados.usuario);
-    setAba('reservar');
     setAviso('');
+    navigate('/reservar', { replace: true });
   }
 
-  function sair() {
-    limparSessao();
+  async function sair() {
+    await encerrarSessao(api);
     setUsuario(null);
-    setAcesso('login');
-  }
-
-  function trocarAcesso(destino) {
-    setAcesso(destino);
     setAviso('');
-  }
-
-  if (!usuario) {
-    return (
-      <main className="app">
-        <h1>get-order — Cliente</h1>
-        <p className="nota">Reserve sua mesa, veja o cardápio e acompanhe seus pedidos.</p>
-        {aviso && (
-          <p className="mensagem-erro" role="alert">
-            {aviso}
-          </p>
-        )}
-        <nav className="abas">
-          <button type="button" className={acesso === 'login' ? 'ativa' : ''} onClick={() => trocarAcesso('login')}>
-            Entrar
-          </button>
-          <button
-            type="button"
-            className={acesso === 'cadastro' ? 'ativa' : ''}
-            onClick={() => trocarAcesso('cadastro')}
-          >
-            Criar conta
-          </button>
-        </nav>
-        {acesso === 'login' ? <Login onLogin={entrar} /> : <Cadastro onLogin={entrar} />}
-      </main>
-    );
+    navigate('/login', { replace: true });
   }
 
   return (
-    <main className="app app-larga">
-      <header className="topo">
-        <h1>get-order — Cliente</h1>
-        <div>
-          <span>
-            {usuario.nome} (<strong>{usuario.perfil}</strong>)
-          </span>{' '}
-          <button type="button" onClick={sair}>
-            Sair
-          </button>
-        </div>
-      </header>
-
-      <nav className="abas">
-        {ABAS.map(({ id, rotulo }) => (
-          <button key={id} type="button" className={aba === id ? 'ativa' : ''} onClick={() => setAba(id)}>
-            {rotulo}
-          </button>
-        ))}
-      </nav>
-
-      {aba === 'reservar' && <NovaReserva onVerReservas={() => setAba('reservas')} />}
-      {aba === 'reservas' && <MinhasReservas onReservar={() => setAba('reservar')} />}
-      {aba === 'cardapio' && <Cardapio onVerPedidos={() => setAba('pedidos')} />}
-      {aba === 'pedidos' && <MeusPedidos onPedir={() => setAba('cardapio')} />}
-    </main>
+    <Routes>
+      <Route
+        path="/login"
+        element={
+          <RotaPublica usuario={usuario}>
+            <ShellPublico aviso={aviso}>
+              <Login onLogin={entrar} />
+            </ShellPublico>
+          </RotaPublica>
+        }
+      />
+      <Route
+        path="/cadastro"
+        element={
+          <RotaPublica usuario={usuario}>
+            <ShellPublico aviso={aviso}>
+              <Cadastro onLogin={entrar} />
+            </ShellPublico>
+          </RotaPublica>
+        }
+      />
+      <Route
+        path="/reservar"
+        element={
+          <RotaPrivada usuario={usuario}>
+            <ShellApp usuario={usuario} onSair={sair}>
+              <NovaReserva />
+            </ShellApp>
+          </RotaPrivada>
+        }
+      />
+      <Route
+        path="/minhas-reservas"
+        element={
+          <RotaPrivada usuario={usuario}>
+            <ShellApp usuario={usuario} onSair={sair}>
+              <MinhasReservas />
+            </ShellApp>
+          </RotaPrivada>
+        }
+      />
+      <Route
+        path="/cardapio"
+        element={
+          <RotaPrivada usuario={usuario}>
+            <ShellApp usuario={usuario} onSair={sair}>
+              <Cardapio />
+            </ShellApp>
+          </RotaPrivada>
+        }
+      />
+      <Route
+        path="/meus-pedidos"
+        element={
+          <RotaPrivada usuario={usuario}>
+            <ShellApp usuario={usuario} onSair={sair}>
+              <MeusPedidos />
+            </ShellApp>
+          </RotaPrivada>
+        }
+      />
+      <Route path="/" element={<Navigate to={usuario ? '/reservar' : '/login'} replace />} />
+      <Route path="*" element={<Navigate to={usuario ? '/reservar' : '/login'} replace />} />
+    </Routes>
   );
 }
 

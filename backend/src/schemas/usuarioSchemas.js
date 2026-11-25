@@ -55,6 +55,22 @@ export const loginSchema = z.object({
     .min(1, 'Senha é obrigatória'),
 });
 
+export const refreshTokenSchema = z.object({
+  refreshToken: z
+    .string({ required_error: 'Refresh token é obrigatório', invalid_type_error: 'Refresh token deve ser texto' })
+    .trim()
+    .min(1, 'Refresh token é obrigatório'),
+});
+
+/** Logout aceita body vazio ou sem refresh (idempotente). */
+export const logoutSchema = z.object({
+  refreshToken: z
+    .string({ invalid_type_error: 'Refresh token deve ser texto' })
+    .trim()
+    .min(1, 'Refresh token inválido')
+    .optional(),
+});
+
 export const criarUsuarioSchema = z.object({ nome, email, senha, telefone, perfil });
 
 export const atualizarUsuarioAdminSchema = z

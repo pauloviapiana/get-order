@@ -161,7 +161,7 @@ Escopo por app (MVP):
 | Armazenamento | `sessionStorage` (chave `token`) |
 | Envio | Header `Authorization: Bearer <token>` (Axios interceptor) |
 | Senha | Hash **bcrypt**; nunca texto puro |
-| Refresh token | Fora do MVP |
+| Refresh token | Fora do MVP inicial; implementado na **Fase 11** (rotação + `sessionStorage`) — ver `FASE11_POLIMENTO.md` |
 
 ---
 

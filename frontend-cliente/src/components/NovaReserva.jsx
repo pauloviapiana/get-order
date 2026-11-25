@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { formatarData } from '../services/formato';
 import { mensagemDeErro } from '../services/sessao';
@@ -7,7 +8,8 @@ import { mensagemDeErro } from '../services/sessao';
 const HORARIOS = ['18:00', '18:30', '19:00', '19:30', '20:00', '20:30', '21:00', '21:30', '22:00', '22:30'];
 
 /** Consulta mesas livres no slot e cria a reserva (POST /reservas). */
-function NovaReserva({ onVerReservas }) {
+function NovaReserva() {
+  const navigate = useNavigate();
   const [mesasAtivas, setMesasAtivas] = useState([]);
   const [carregandoMesas, setCarregandoMesas] = useState(true);
   const [data, setData] = useState('');
@@ -145,7 +147,7 @@ function NovaReserva({ onVerReservas }) {
       {mensagem && (
         <p className="mensagem-sucesso" role="status">
           {mensagem}{' '}
-          <button type="button" className="link" onClick={onVerReservas}>
+          <button type="button" className="link" onClick={() => navigate('/minhas-reservas')}>
             Ver minhas reservas
           </button>
         </p>
