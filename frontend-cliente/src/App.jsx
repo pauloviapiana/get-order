@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import api from './services/api';
-import { lerUsuario, limparSessao, salvarSessao } from './services/sessao';
+import api, { EVENTO_SESSAO_EXPIRADA } from './services/api';
+import { MENSAGEM_PERFIL_GESTAO, lerUsuario, limparSessao, salvarSessao } from './services/sessao';
 import Cadastro from './components/Cadastro';
 import Cardapio from './components/Cardapio';
 import Login from './components/Login';
@@ -8,85 +8,131 @@ import MeusPedidos from './components/MeusPedidos';
 import MinhasReservas from './components/MinhasReservas';
 import NovaReserva from './components/NovaReserva';
 
+const ABAS = [
+  { id: 'reservar', rotulo: 'Reservar' },
+  { id: 'reservas', rotulo: 'Minhas reservas' },
+  { id: 'cardapio', rotulo: 'Cardápio e pedido' },
+  { id: 'pedidos', rotulo: 'Meus pedidos' },
+];
+
+// Sessão gravada antes do gate de perfil (ou adulterada) não entra
+function usuarioInicial() {
+  const usuario = lerUsuario();
+  if (usuario && usuario.perfil !== 'cliente') {
+    limparSessao();
+    return null;
+  }
+  return usuario;
+}
+
 function App() {
-  const [usuario, setUsuario] = useState(lerUsuario);
-  const [aba, setAba] = useState('login');
-  // Incrementam após criar reserva/pedido para recarregar as listas
-  const [versaoReservas, setVersaoReservas] = useState(0);
-  const [versaoPedidos, setVersaoPedidos] = useState(0);
+  const [usuario, setUsuario] = useState(usuarioInicial);
+  const [acesso, setAcesso] = useState('login');
+  const [aba, setAba] = useState('reservar');
+  const [aviso, setAviso] = useState('');
 
   // Token salvo pode ter expirado (30 min): confirma com a API ao abrir
   useEffect(() => {
     if (!sessionStorage.getItem('token')) return;
 
-    api.get('/auth/me').catch(() => {
-      limparSessao();
+    api
+      .get('/auth/me')
+      .then((res) => {
+        if (res.data.perfil !== 'cliente') {
+          limparSessao();
+          setUsuario(null);
+          setAviso(MENSAGEM_PERFIL_GESTAO);
+        }
+      })
+      .catch(() => {
+        limparSessao();
+        setUsuario(null);
+      });
+  }, []);
+
+  // Qualquer 401 em requisição autenticada (ver services/api.js) volta para o login
+  useEffect(() => {
+    function expirou() {
       setUsuario(null);
-    });
+      setAcesso('login');
+      setAviso('Sua sessão expirou. Entre novamente.');
+    }
+
+    window.addEventListener(EVENTO_SESSAO_EXPIRADA, expirou);
+    return () => window.removeEventListener(EVENTO_SESSAO_EXPIRADA, expirou);
   }, []);
 
   function entrar(dados) {
     salvarSessao(dados);
     setUsuario(dados.usuario);
+    setAba('reservar');
+    setAviso('');
   }
 
   function sair() {
     limparSessao();
     setUsuario(null);
-    setAba('login');
+    setAcesso('login');
   }
 
-  if (usuario) {
+  function trocarAcesso(destino) {
+    setAcesso(destino);
+    setAviso('');
+  }
+
+  if (!usuario) {
     return (
       <main className="app">
         <h1>get-order — Cliente</h1>
-        <section className="cartao">
-          <p>
-            Olá, <strong>{usuario.nome}</strong>
+        <p className="nota">Reserve sua mesa, veja o cardápio e acompanhe seus pedidos.</p>
+        {aviso && (
+          <p className="mensagem-erro" role="alert">
+            {aviso}
           </p>
-          <p>
-            Perfil: <strong>{usuario.perfil}</strong>
-          </p>
-          <button type="button" onClick={sair}>
-            Sair
+        )}
+        <nav className="abas">
+          <button type="button" className={acesso === 'login' ? 'ativa' : ''} onClick={() => trocarAcesso('login')}>
+            Entrar
           </button>
-        </section>
-
-        <section>
-          <h2>Reservar mesa</h2>
-          <NovaReserva onCriada={() => setVersaoReservas((v) => v + 1)} />
-        </section>
-
-        <section>
-          <h2>Minhas reservas</h2>
-          <MinhasReservas versao={versaoReservas} />
-        </section>
-
-        <section>
-          <h2>Cardápio e pedido</h2>
-          <Cardapio versaoReservas={versaoReservas} onPedidoCriado={() => setVersaoPedidos((v) => v + 1)} />
-        </section>
-
-        <section>
-          <h2>Meus pedidos</h2>
-          <MeusPedidos versao={versaoPedidos} />
-        </section>
+          <button
+            type="button"
+            className={acesso === 'cadastro' ? 'ativa' : ''}
+            onClick={() => trocarAcesso('cadastro')}
+          >
+            Criar conta
+          </button>
+        </nav>
+        {acesso === 'login' ? <Login onLogin={entrar} /> : <Cadastro onLogin={entrar} />}
       </main>
     );
   }
 
   return (
-    <main className="app">
-      <h1>get-order — Cliente</h1>
+    <main className="app app-larga">
+      <header className="topo">
+        <h1>get-order — Cliente</h1>
+        <div>
+          <span>
+            {usuario.nome} (<strong>{usuario.perfil}</strong>)
+          </span>{' '}
+          <button type="button" onClick={sair}>
+            Sair
+          </button>
+        </div>
+      </header>
+
       <nav className="abas">
-        <button type="button" className={aba === 'login' ? 'ativa' : ''} onClick={() => setAba('login')}>
-          Entrar
-        </button>
-        <button type="button" className={aba === 'cadastro' ? 'ativa' : ''} onClick={() => setAba('cadastro')}>
-          Criar conta
-        </button>
+        {ABAS.map(({ id, rotulo }) => (
+          <button key={id} type="button" className={aba === id ? 'ativa' : ''} onClick={() => setAba(id)}>
+            {rotulo}
+          </button>
+        ))}
       </nav>
-      {aba === 'login' ? <Login onLogin={entrar} /> : <Cadastro onLogin={entrar} />}
+
+      {aba === 'reservar' && <NovaReserva onVerReservas={() => setAba('reservas')} />}
+      {aba === 'reservas' && <MinhasReservas onReservar={() => setAba('reservar')} />}
+      {aba === 'cardapio' && <Cardapio onVerPedidos={() => setAba('pedidos')} />}
+      {aba === 'pedidos' && <MeusPedidos onPedir={() => setAba('cardapio')} />}
     </main>
   );
 }

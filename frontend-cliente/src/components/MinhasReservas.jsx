@@ -1,16 +1,17 @@
 import { useEffect, useState } from 'react';
 import api from '../services/api';
+import { formatarData } from '../services/formato';
 import { mensagemDeErro } from '../services/sessao';
 
 const CANCELAVEIS = ['pendente', 'confirmada'];
 
-const formatarData = (iso) => iso.split('-').reverse().join('/');
-
 /** GET /reservas (a API devolve só as do cliente logado) + cancelar. */
-function MinhasReservas({ versao }) {
+function MinhasReservas({ onReservar }) {
   const [reservas, setReservas] = useState([]);
   const [erro, setErro] = useState('');
+  const [mensagem, setMensagem] = useState('');
   const [carregando, setCarregando] = useState(true);
+  const [processandoId, setProcessandoId] = useState(null);
 
   function carregar() {
     setCarregando(true);
@@ -24,7 +25,7 @@ function MinhasReservas({ versao }) {
       .finally(() => setCarregando(false));
   }
 
-  useEffect(carregar, [versao]);
+  useEffect(carregar, []);
 
   async function cancelar(reserva) {
     const pergunta =
@@ -32,26 +33,53 @@ function MinhasReservas({ versao }) {
       'Pedidos vinculados a ela não são cancelados automaticamente.';
     if (!window.confirm(pergunta)) return;
 
+    setErro('');
+    setMensagem('');
+    setProcessandoId(reserva.id);
+
     try {
       await api.patch(`/reservas/${reserva.id}/status`, { status: 'cancelada' });
+      setMensagem(
+        `Reserva de ${formatarData(reserva.data_reserva)} às ${reserva.horario} cancelada. ` +
+          'Se houver pedido vinculado, cancele-o em "Meus pedidos" enquanto estiver aberto.',
+      );
       carregar();
     } catch (error) {
       setErro(mensagemDeErro(error, 'Falha ao cancelar.'));
+    } finally {
+      setProcessandoId(null);
     }
   }
 
-  if (carregando && reservas.length === 0) return <p>Carregando reservas…</p>;
-
   return (
-    <div>
+    <section>
+      <h2>Minhas reservas</h2>
+      {mensagem && (
+        <p className="mensagem-sucesso" role="status">
+          {mensagem}
+        </p>
+      )}
       {erro && (
         <p className="mensagem-erro" role="alert">
           {erro}
         </p>
       )}
-      {reservas.length === 0 ? (
-        <p className="nota">Você ainda não tem reservas.</p>
+
+      {carregando && reservas.length === 0 ? (
+        <p className="nota">Carregando reservas…</p>
       ) : (
+        !erro &&
+        reservas.length === 0 && (
+          <p className="nota">
+            Você ainda não tem reservas.{' '}
+            <button type="button" className="link" onClick={onReservar}>
+              Reservar uma mesa
+            </button>
+          </p>
+        )
+      )}
+
+      {reservas.length > 0 && (
         <table className="tabela">
           <thead>
             <tr>
@@ -73,8 +101,8 @@ function MinhasReservas({ versao }) {
                 <td>{r.status}</td>
                 <td>
                   {CANCELAVEIS.includes(r.status) && (
-                    <button type="button" onClick={() => cancelar(r)}>
-                      Cancelar
+                    <button type="button" onClick={() => cancelar(r)} disabled={processandoId !== null}>
+                      {processandoId === r.id ? 'Cancelando…' : 'Cancelar'}
                     </button>
                   )}
                 </td>
@@ -83,7 +111,7 @@ function MinhasReservas({ versao }) {
           </tbody>
         </table>
       )}
-    </div>
+    </section>
   );
 }
 

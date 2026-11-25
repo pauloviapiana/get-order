@@ -42,8 +42,21 @@ button:disabled {
   cursor: default;
 }
 
+.app-larga {
+  max-width: 52rem;
+}
+
+.topo {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
 .abas {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
   margin: 1rem 0;
 }
@@ -87,7 +100,21 @@ button:disabled {
 }
 
 .mensagem-erro {
+  margin-top: 1rem;
   color: #a11d1d;
+}
+
+.mensagem-sucesso {
+  margin-top: 1rem;
+  color: #2d6a2d;
+}
+
+button.link {
+  padding: 0;
+  border: none;
+  background: none;
+  color: #7a4a24;
+  text-decoration: underline;
 }
 
 .nota {

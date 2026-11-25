@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import api from '../services/api';
-import { mensagemDeErro } from '../services/sessao';
+import { MENSAGEM_PERFIL_GESTAO, mensagemDeErro } from '../services/sessao';
 
+/** Só `cliente` entra; admin/funcionario é recusado antes de gravar a sessão. */
 function Login({ onLogin }) {
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
@@ -15,6 +16,12 @@ function Login({ onLogin }) {
 
     try {
       const resposta = await api.post('/auth/login', { email, senha });
+
+      if (resposta.data.usuario.perfil !== 'cliente') {
+        setErro(MENSAGEM_PERFIL_GESTAO);
+        return;
+      }
+
       onLogin(resposta.data);
     } catch (error) {
       setErro(mensagemDeErro(error, 'Falha ao entrar.'));

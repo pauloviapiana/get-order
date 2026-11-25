@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import api from '../services/api';
-import { mensagemDeErro } from '../services/sessao';
+import { MENSAGEM_PERFIL_GESTAO, mensagemDeErro } from '../services/sessao';
 
 /** Auto-cadastro público (perfil `cliente` definido pela API). Entra logo em seguida. */
 function Cadastro({ onLogin }) {
@@ -20,6 +20,13 @@ function Cadastro({ onLogin }) {
     try {
       await api.post('/auth/register', form);
       const resposta = await api.post('/auth/login', { email: form.email, senha: form.senha });
+
+      // A API força `cliente`; gate defensivo igual ao Login
+      if (resposta.data.usuario.perfil !== 'cliente') {
+        setErro(MENSAGEM_PERFIL_GESTAO);
+        return;
+      }
+
       onLogin(resposta.data);
     } catch (error) {
       setErro(mensagemDeErro(error, 'Falha ao cadastrar.'));

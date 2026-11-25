@@ -1,4 +1,4 @@
-# Checklist — Fase 0 (Planejamento) + Fase 1 (Scaffold) + Fase 2 (Auth) + Fase 3 (Mesas e reservas) + Fase 4 (Cardápio) + Fase 5 (Pedidos) + Fase 6 (Financeiro) + Fase 7 (Erros, CORS e docs)
+# Checklist — Fase 0 (Planejamento) + Fase 1 (Scaffold) + Fase 2 (Auth) + Fase 3 (Mesas e reservas) + Fase 4 (Cardápio) + Fase 5 (Pedidos) + Fase 6 (Financeiro) + Fase 7 (Erros, CORS e docs) + Fase 8 (Frontend cliente)
 
 Marcado = fechado nesta fase.
 
@@ -141,14 +141,25 @@ Detalhe: [`FASE7_DOCS_ERROS.md`](FASE7_DOCS_ERROS.md). Inventário: [`DOCUMENTAC
 
 ---
 
-## Fases 8 e 9 — UI (já cobertas nas Fases 2–6)
+## Fase 8 — frontend cliente (concluído)
 
-O plano original separava a UI do cliente (Fase 8) e a UI da gestão (Fase 9). Essas telas entraram junto com o domínio:
+Detalhe: [`FASE8_FRONTEND_CLIENTE.md`](FASE8_FRONTEND_CLIENTE.md).
 
-- cliente (5173): cadastro, login, cardápio, reservas, pedidos — Fases 2–5
-- gestão (5174): usuários, mesas, reservas, cardápio, pedidos, compras, financeiro — Fases 2–6
+Telas básicas já existiam nas Fases 2–5; esta fase consolidou o site do cliente (5173) para entrega acadêmica:
 
-Não há fase pendente de reconstruir interface.
+- [x] Gate de perfil: só `cliente` grava sessão; `admin`/`funcionario` são recusados com mensagem apontando o 5174
+- [x] Área autenticada em abas (Reservar | Minhas reservas | Cardápio e pedido | Meus pedidos), padrão do gestão
+- [x] Fluxos: cadastro → login → reservar/cancelar → pedir (reserva opcional) → cancelar `aberto` / pagar `entregue` com garçom
+- [x] UX: loading, erro (`mensagemDeErro`), vazio, disabled em submit; sessão expirada limpa e volta ao login
+- [x] Preços em R$; sem endpoints de gestão; sem React Router / deps novas
+- [x] `docs/FASE8_FRONTEND_CLIENTE.md` + checklist/README atualizados
+
+---
+
+## Fase 9 — frontend gestão (pendente de consolidação formal)
+
+A UI de gestão (5174) já cobre usuários, mesas, reservas, cardápio, pedidos, compras e financeiro nas Fases 2–6 (incluindo gate que recusa `cliente`).  
+Uma fase espelho da 8 (doc `FASE9_…`, critérios de aceite e polimento de UX) pode ser feita se a banca exigir fechamento explícito.
 
 ---
 
